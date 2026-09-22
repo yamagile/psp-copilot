@@ -1,1192 +1,1158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>PSP Copilot</title>
-  
-  <!-- Vue 3 & Tailwind CSS -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Phosphor Icons -->
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- interact.js (for Drag & Drop/Resize) -->
-  <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSP Copilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .timeline-grid {
+            background-image: linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+            background-size: 100% 60px;
+            height: 1440px; /* 24 hours x 60px (1px per minute) */
+            position: relative;
+        }
+        @media (max-width: 1023px) {
+            .timeline-grid {
+                height: 960px; /* 16 hours on mobile */
+                background-size: 100% 60px;
+            }
+        }
+        .time-label { height: 60px; }
+        
+        .timeline-lane {
+            position: relative;
+            overflow: visible;
+            padding-right: 8px;
+            box-sizing: border-box;
+        }
 
-  <style>
-    /* Custom Scrollbar for a cleaner look */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow-x: hidden;}
-    [v-cloak] { display: none !important; }
+        .block-base {
+            position: absolute;
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-size: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: filter 0.2s, left 0.2s, width 0.2s;
+            box-sizing: border-box;
+            cursor: grab;
+            touch-action: none;
+            border-style: solid;
+            border-width: 1px;
+        }
+        .block-base:active {
+            cursor: grabbing;
+        }
+        
+        .plan-block {
+            overflow: visible; 
+            z-index: 10;
+        }
+        .plan-block:hover { filter: brightness(0.95); z-index: 30; }
+        
+        /* Action buttons shown on hover */
+        .plan-actions, .actual-actions {
+            display: flex;
+        }
+        @media (min-width: 1024px) {
+            .plan-actions, .actual-actions {
+                display: none;
+            }
+            .plan-block:hover .plan-actions,
+            .actual-fill:hover .actual-actions {
+                display: flex;
+            }
+        }
 
-    /* Timeline Base Setup */
-    .timeline-container {
-      position: relative;
-      height: 1440px; /* 24 hours * 60px/hour */
-      background: repeating-linear-gradient(
-        to bottom,
-        transparent,
-        transparent 14px,
-        #f1f5f9 14px,
-        #f1f5f9 15px,
-        transparent 15px,
-        transparent 29px,
-        #e2e8f0 29px,
-        #e2e8f0 30px
-      );
-      background-size: 100% 60px; /* 1 Hour = 60px, 15 Mins = 15px */
-    }
-    
-    /* Current Time Line Indicator */
-    .current-time-line {
-      position: absolute;
-      left: 0; right: 0;
-      height: 2px;
-      background-color: #ef4444;
-      z-index: 30;
-      pointer-events: none;
-    }
-    .current-time-line::before {
-      content: '';
-      position: absolute;
-      left: 0; top: -4px;
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background-color: #ef4444;
-    }
+        .actual-ghost {
+            position: absolute;
+            border-style: dashed;
+            border-width: 2px;
+            border-radius: 6px;
+            background-color: transparent;
+            pointer-events: none;
+            z-index: 5;
+            box-sizing: border-box;
+            transition: left 0.2s, width 0.2s;
+        }
 
-    /* Task Blocks */
-    .task-block {
-      position: absolute;
-      left: 4px; right: 4px;
-      border-radius: 6px;
-      padding: 4px 6px;
-      font-size: 0.75rem;
-      line-height: 1.1;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      transition: box-shadow 0.2s, background-color 0.2s;
-      cursor: grab;
-      touch-action: none;
-      display: flex;
-      flex-direction: column;
-    }
-    .task-block:active { cursor: grabbing; box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
-    .task-block-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-    .task-block-time { font-size: 0.65rem; opacity: 0.8; }
-    
-    /* Plan vs Actual transparency */
-    .plan-block { opacity: 0.85; border-left: 4px solid rgba(0,0,0,0.3); }
-    .actual-block { opacity: 1; border-left: 4px solid rgba(0,0,0,0.6); }
+        .actual-fill {
+            overflow: visible; 
+            z-index: 15;
+        }
+        .actual-fill:hover { z-index: 30; filter: brightness(0.98); }
+        
+        .is-running {
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.8);
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
 
-    /* Interaction helpers */
-    .resize-handle {
-      position: absolute;
-      left: 0; right: 0;
-      height: 10px;
-      background: transparent;
-      z-index: 10;
-    }
-    .resize-handle-top { top: 0; cursor: ns-resize; }
-    .resize-handle-bottom { bottom: 0; cursor: ns-resize; }
-    .action-btn { transition: all 0.2s; }
-    .action-btn:hover { background-color: rgba(0,0,0,0.1); }
-    
-    /* Pulse animation for running task */
-    @keyframes pulse-border {
-      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-      70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-    }
-    .running-task { animation: pulse-border 2s infinite; border: 2px solid #22c55e; }
-
-    /* Ghost Block (Estimated duration overlay for running task) */
-    .ghost-block {
-      position: absolute;
-      left: 4px; right: 4px;
-      border-radius: 6px;
-      border: 2px dashed #94a3b8;
-      background-color: rgba(241, 245, 249, 0.5);
-      pointer-events: none;
-      z-index: 5;
-    }
-
-    /* Markdown preview styling */
-    .md-preview h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
-    .md-preview h2 { font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #334155; }
-    .md-preview ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
-    .md-preview p { margin-bottom: 0.5rem; }
-  </style>
+        .resize-handle-bottom {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 8px;
+            cursor: ns-resize;
+            background: linear-gradient(to top, rgba(0,0,0,0.05), transparent);
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+        .resize-handle-bottom:hover { background-color: rgba(0,0,0,0.1); }
+        
+        .resize-handle-top {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 8px;
+            cursor: ns-resize;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.05), transparent);
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+        }
+        .resize-handle-top:hover { background-color: rgba(0,0,0,0.1); }
+        
+        .text-shadow-sm {
+            text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+        }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 h-screen flex flex-col">
-  <div id="app" v-cloak class="flex flex-col h-full max-w-7xl mx-auto w-full bg-white shadow-lg overflow-hidden">
-    
-    <!-- Top Header Navigation -->
-    <header class="bg-slate-800 text-white p-3 flex justify-between items-center shrink-0">
-      <div class="flex items-center gap-3">
-        <h1 class="text-xl font-bold tracking-wider flex items-center gap-2">
-          <i class="ph ph-clock-countdown text-2xl text-blue-400"></i>
-          PSP Copilot
-        </h1>
-        <div class="flex items-center bg-slate-700 rounded-full px-3 py-1 ml-4">
-          <button @click="changeDate(-1)" class="p-1 hover:text-blue-300 transition-colors"><i class="ph ph-caret-left"></i></button>
-          <span class="font-medium text-sm mx-3 min-w-[100px] text-center cursor-pointer" @click="$refs.datePicker.showPicker()">
-            {{ formatDateForDisplay(currentDate) }}
-            <span v-if="isToday" class="ml-1 text-xs bg-blue-500 px-2 py-0.5 rounded text-white">Today</span>
-            <input type="date" ref="datePicker" v-model="currentDate" @change="loadDataForCurrentDate" class="sr-only" />
-          </span>
-          <button @click="changeDate(1)" class="p-1 hover:text-blue-300 transition-colors"><i class="ph ph-caret-right"></i></button>
-        </div>
-      </div>
-      
-      <div class="flex gap-2">
-        <button @click="exportData" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded flex items-center gap-1 transition-colors" title="Export all data as JSON">
-          <i class="ph ph-download-simple"></i><span class="hidden sm:inline">Export</span>
-        </button>
-        <label class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-colors" title="Import JSON data">
-          <i class="ph ph-upload-simple"></i><span class="hidden sm:inline">Import</span>
-          <input type="file" accept=".json" @change="importData" class="hidden" />
-        </label>
-        <button @click="openReportModal" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded font-bold flex items-center gap-1 transition-colors ml-2 shadow-sm">
-          <i class="ph ph-file-text"></i><span class="hidden sm:inline">Report</span>
-        </button>
-      </div>
-    </header>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen overflow-hidden">
+    <div id="app" class="h-full flex flex-col">
+        
+        <header class="bg-white border-b border-slate-200 px-3 lg:px-6 py-2 lg:py-3 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-2 lg:gap-0 shrink-0 z-30 shadow-sm select-none">
+            <div class="flex items-center gap-2 lg:gap-4">
+                <div>
+                    <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">PSP Copilot</h1>
+                    <p class="text-[10px] lg:text-xs text-slate-500">Focus on execution.</p>
+                </div>
+                <div class="flex items-center bg-slate-100 rounded-lg p-0.5 lg:p-1 text-[10px] lg:text-xs gap-0.5 lg:gap-0">
+                    <button @click="changeDate(-1)" class="px-2 lg:px-2.5 py-0.5 lg:py-1 hover:bg-white rounded shadow-sm text-xs"><i class="fas fa-chevron-left"></i></button>
+                    <input type="date" v-model="currentDate" class="bg-transparent font-bold text-xs lg:text-sm mx-1 lg:mx-2 outline-none cursor-pointer w-28 lg:w-auto">
+                    <button @click="changeDate(1)" class="px-2 lg:px-2.5 py-0.5 lg:py-1 hover:bg-white rounded shadow-sm text-xs"><i class="fas fa-chevron-right"></i></button>
+                    <button @click="setToday" class="ml-1 px-1.5 lg:px-2 py-0.5 lg:py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 font-semibold text-[10px] lg:text-xs">Today</button>
+                </div>
+            </div>
 
-    <!-- Main Workspace -->
-    <div class="flex flex-1 overflow-hidden flex-col md:flex-row">
-      
-      <!-- Left Panel: Timelines -->
-      <div class="flex-1 flex flex-col min-w-0 border-r border-gray-200">
-        <!-- Timeline Headers -->
-        <div class="flex border-b border-gray-200 bg-gray-50 shrink-0 text-sm font-semibold shadow-sm z-10 relative">
-          <div class="w-16 shrink-0 text-center py-2 text-gray-500 border-r border-gray-200">Time</div>
-          
-          <!-- Plan Header -->
-          <div class="flex-1 border-r border-gray-200 flex flex-col justify-between p-2 pb-1 bg-blue-50/30">
-            <div class="flex justify-between items-center w-full mb-1">
-              <span class="text-blue-800 flex items-center gap-1"><i class="ph ph-calendar-check"></i>Plan</span>
-              <div class="flex gap-1">
-                <button @click="openCopyDateModal('plan')" class="text-xs bg-white border border-gray-300 text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 flex items-center gap-1" title="Copy plan from another date">
-                  <i class="ph ph-copy"></i><span class="hidden lg:inline">Pick</span>
-                </button>
-                <button @click="openPlanModal()" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center gap-1">
-                  <i class="ph ph-plus"></i><span class="hidden lg:inline">Add</span>
-                </button>
-              </div>
-            </div>
-            <!-- Quick Copy Row (Plan) -->
-            <div class="flex gap-1">
-              <button @click="copyYesterday('plan')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1d</button>
-              <button @click="copyLastWeek('plan')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1w</button>
-            </div>
-          </div>
-          
-          <!-- Actual Header -->
-          <div class="flex-1 flex flex-col justify-between p-2 pb-1 bg-emerald-50/30">
-            <div class="flex justify-between items-center w-full mb-1">
-              <span class="text-emerald-800 flex items-center gap-1"><i class="ph ph-play-circle"></i>Actual</span>
-              <div class="flex gap-1">
-                <button @click="reflectPlanToActual" class="text-xs bg-white border border-emerald-300 text-emerald-700 px-2 py-0.5 rounded hover:bg-emerald-50 flex items-center gap-1 shadow-sm" title="Copy today's plan to actuals directly">
-                  <i class="ph ph-arrows-left-right"></i><span class="hidden lg:inline">Sync</span>
-                </button>
-                <button @click="startNewTask" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded hover:bg-emerald-200 flex items-center gap-1">
-                  <i class="ph ph-play"></i><span class="hidden lg:inline">Start</span>
-                </button>
-              </div>
-            </div>
-            <!-- Quick Copy Row (Actual) -->
-            <div class="flex gap-1">
-              <button @click="copyYesterday('actual')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1d</button>
-              <button @click="copyLastWeek('actual')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1w</button>
-            </div>
-          </div>
-        </div>
+            <div class="flex items-center gap-2 lg:gap-3 text-xs lg:text-sm">
+                <div class="flex items-center gap-0.5 lg:gap-1 bg-slate-100 p-0.5 lg:p-1 rounded-lg">
+                    <button @click="exportJson" class="px-1.5 lg:px-2.5 py-0.5 lg:py-1 bg-white hover:bg-slate-50 rounded shadow-sm text-slate-700 font-semibold flex items-center gap-0.5 lg:gap-1 text-xs" title="Save all data as JSON">
+                        <i class="fas fa-download text-indigo-600"></i> <span class="hidden lg:inline">Export</span>
+                    </button>
+                    <label class="px-1.5 lg:px-2.5 py-0.5 lg:py-1 bg-white hover:bg-slate-50 rounded shadow-sm text-slate-700 font-semibold flex items-center gap-0.5 lg:gap-1 cursor-pointer text-xs" title="Load a saved JSON file">
+                        <i class="fas fa-upload text-indigo-600"></i> <span class="hidden lg:inline">Import</span>
+                        <input type="file" @change="importJson" accept=".json" class="hidden">
+                    </label>
+                </div>
 
-        <!-- Scrollable Timeline Area -->
-        <div class="flex-1 overflow-y-auto relative" ref="timelineScroll">
-          <div class="flex">
-            <!-- Time axis (0-24h) -->
-            <div class="w-16 shrink-0 timeline-container border-r border-gray-200">
-              <div v-for="hour in 24" :key="hour-1" class="absolute w-full text-center text-xs text-gray-400 font-medium" :style="{ top: `${(hour-1) * 60}px`, marginTop: '-8px' }">
-                {{ String(hour-1).padStart(2, '0') }}:00
-              </div>
+                <button @click="openReportModal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1">
+                    <i class="fas fa-file-alt"></i> <span class="hidden lg:inline">Report</span><span class="lg:hidden">Report</span>
+                </button>
+                <div class="font-mono font-bold text-sm lg:text-base text-slate-700 bg-slate-100 px-2 lg:px-3 py-0.5 lg:py-1 rounded-md">
+                    <i class="fas fa-clock mr-1 lg:mr-1.5 text-indigo-500"></i><span class="text-xs lg:text-base">{{ formatTimeDisplay(now) }}</span>
+                </div>
             </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden flex-col lg:flex-row">
             
-            <!-- Plan Lane -->
-            <div class="flex-1 timeline-container border-r border-gray-200 relative" id="plan-lane" @dblclick="handleLaneDblClick($event, 'plan')">
-              <div v-for="task in todayPlans" :key="task.id"
-                   :data-id="task.id" data-type="plan"
-                   class="task-block plan-block text-gray-800"
-                   :style="{ top: `${task.top}px`, height: `${task.height}px`, backgroundColor: getTaskColor(task.name, true) }">
-                <div class="resize-handle resize-handle-top"></div>
-                <div class="flex justify-between items-start">
-                  <div class="task-block-title" :title="task.name">{{ task.name }}</div>
-                  <div class="flex gap-1 opacity-0 hover:opacity-100 transition-opacity">
-                    <button @click.stop="openPlanModal(task)" class="action-btn p-0.5 rounded text-gray-600 hover:text-blue-600" title="Edit plan"><i class="ph ph-pencil-simple"></i></button>
-                    <button @click.stop="deleteTask('plan', task.id)" class="action-btn p-0.5 rounded text-gray-600 hover:text-red-600" title="Delete plan"><i class="ph ph-trash"></i></button>
-                  </div>
+            <div class="lg:w-7/12 w-full flex flex-col bg-white lg:border-r border-b lg:border-b-0 border-slate-200 shadow-xl z-10 lg:h-full h-1/2 lg:overflow-hidden">
+                
+                <div class="flex flex-col flex-1 overflow-y-auto relative" id="timeline" @mousemove="onMouseMove" @mouseup="onMouseUp" @mouseleave="onMouseUp" @touchmove="onMouseMove" @touchend="onMouseUp">
+                    
+                    <div class="flex bg-slate-100 border-b border-slate-200 text-xs lg:text-sm font-bold text-slate-600 sticky top-0 z-40 shadow-sm shrink-0 select-none">
+                        <div class="w-12 lg:w-16 text-center py-1 lg:py-2 border-r border-slate-200 shrink-0 text-xs">Time</div>
+                        
+                        <div class="flex-1 text-center py-1 lg:py-2 border-r border-slate-200 text-blue-700 flex justify-between items-center px-1 lg:px-2 text-xs lg:text-sm gap-0.5 lg:gap-1">
+                            <div class="flex items-center gap-0.5 lg:gap-1">
+                                <span class="hidden lg:inline text-xs">Plan</span>
+                                <span class="lg:hidden text-[10px]">Plan</span>
+                                <button @click="openCopyDateModal('plan')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="Copy a plan from another date"><i class="fas fa-calendar-alt"></i> Copy</button>
+                            </div>
+                            <button @click="openPlanModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5">
+                                <i class="fas fa-plus text-[8px] lg:text-[9px]"></i> <span class="hidden lg:inline">Add</span>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 text-center py-1 lg:py-2 text-emerald-700 flex justify-between items-center px-1 lg:px-2 text-xs lg:text-sm gap-0.5 lg:gap-1">
+                            <div class="flex items-center gap-0.5 lg:gap-1">
+                                <span class="hidden lg:inline text-xs">Actual</span>
+                                <span class="lg:hidden text-[10px]">Actual</span>
+                                <button @click="copyActualsFromPlan" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="Copy today's plan to actuals">Copy</button>
+                                <button @click="openCopyDateModal('actual')" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="Copy actuals from another date"><i class="fas fa-calendar-alt"></i> Copy</button>
+                            </div>
+                            <div class="flex items-center gap-0.5 lg:gap-1">
+                                <button @click="quickStartTaskPrompt" class="bg-emerald-500 hover:bg-emerald-600 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5" title="Start a new task now">
+                                    <i class="fas fa-play text-[8px]"></i> <span class="hidden lg:inline">Start</span>
+                                </button>
+                                <button @click="openActualModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5">
+                                    <i class="fas fa-plus text-[8px] lg:text-[9px]"></i> <span class="hidden lg:inline">Add</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-1">
+                        
+                        <div class="w-12 lg:w-16 shrink-0 bg-slate-50 border-r border-slate-200 text-slate-400 text-xs text-right pr-1 lg:pr-2 select-none overflow-hidden">
+                            <div v-for="h in 24" :key="h" class="time-label flex items-start justify-end pt-0.5 lg:pt-1 text-[10px] lg:text-xs">
+                                {{ h-1 }}:00
+                            </div>
+                        </div>
+                        
+                        <div class="flex-1 flex timeline-grid relative">
+                            
+                            <!-- Plan lane -->
+                            <div class="timeline-lane flex-1 border-r border-slate-200/50">
+                                <div v-for="item in computedDailyPlans" :key="`plan-${item.task.id}`" 
+                                    class="block-base plan-block group"
+                                     @mousedown="onMouseDownMove($event, item.task, 'plan')"
+                                     @touchstart="onMouseDownMove($event, item.task, 'plan')"
+                                     :style="[getItemLayoutStyle(item), getProjectColorStyle(item.task.title, 'plan')]">
+                                    
+                                    <div class="flex flex-wrap items-baseline gap-x-2 leading-tight pr-12 text-shadow-sm pointer-events-none">
+                                        <span class="font-bold">{{ item.task.title }}</span>
+                                        <span class="text-[10px] opacity-80">{{ formatTime(item.task.start) }} - {{ formatTime(item.task.end) }}</span>
+                                    </div>
+                                    
+                                    <div class="plan-actions absolute top-1 right-1 items-center gap-1 z-30 pointer-events-auto">
+                                        <button @click="openPlanModal(item.task)" 
+                                                class="bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
+                                                title="Edit plan">
+                                            <i class="fas fa-pen text-[9px]"></i>
+                                        </button>
+                                        <button @click="deletePlanById(item.task.id)" 
+                                                class="bg-white text-red-500 border border-red-200 hover:bg-red-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
+                                                title="Delete plan">
+                                            <i class="fas fa-trash text-[9px]"></i>
+                                        </button>
+                                        <button @click="startTask(item.task)" 
+                                                class="bg-blue-600 text-white hover:bg-blue-700 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
+                                                title="Start actual">
+                                            <i class="fas fa-play text-[9px] ml-0.5"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="resize-handle-top z-20" 
+                                         @mousedown.stop.prevent="onMouseDownResize($event, item.task, 'plan', 'top')"
+                                         @touchstart.stop="onMouseDownResize($event, item.task, 'plan', 'top')">
+                                    </div>
+                                    <div class="resize-handle-bottom z-20" 
+                                         @mousedown.stop.prevent="onMouseDownResize($event, item.task, 'plan', 'bottom')"
+                                         @touchstart.stop="onMouseDownResize($event, item.task, 'plan', 'bottom')">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Actual lane -->
+                            <div class="timeline-lane flex-1">
+                                
+                                <!-- Target ghost for running tasks -->
+                                <div v-for="item in computedDailyActuals" :key="`ghost-${item.task.id}`">
+                                    <div v-if="item.task.targetMinutes && item.task.isRunning" 
+                                         class="actual-ghost"
+                                         :style="[getGhostLayoutStyle(item), getGhostProjectStyle(item.task.title)]">
+                                    </div>
+                                </div>
+
+                                <div v-for="item in computedDailyActuals" :key="`actual-${item.task.id}`"
+                                     class="block-base actual-fill"
+                                     :class="{ 'is-running': item.task.isRunning }"
+                                     @mousedown="onMouseDownMove($event, item.task, 'actual')"
+                                     @touchstart="onMouseDownMove($event, item.task, 'actual')"
+                                     :style="[getItemLayoutStyle(item, item.task.isRunning ? now : item.task.end), getProjectColorStyle(item.task.title, 'actual')]">
+                                    
+                                    <button v-if="item.task.isRunning" @click.stop="stopTask(item.task)" 
+                                            class="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center shadow-md z-30 transition-transform hover:scale-110 pointer-events-auto"
+                                            title="Stop task">
+                                        <i class="fas fa-stop text-[9px]"></i>
+                                    </button>
+
+                                    <div v-else class="actual-actions absolute top-1 right-1 items-center gap-1 z-30 pointer-events-auto">
+                                        <button @click="openActualModal(item.task)" 
+                                                class="bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
+                                                title="Edit actual">
+                                            <i class="fas fa-pen text-[9px]"></i>
+                                        </button>
+                                        <button @click="deleteActualById(item.task.id)" 
+                                                class="bg-white text-red-500 border border-red-200 hover:bg-red-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
+                                                title="Delete actual">
+                                            <i class="fas fa-trash text-[9px]"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="relative z-20 flex flex-wrap items-baseline gap-x-2 pr-10 leading-tight text-shadow-sm pointer-events-none mt-1">
+                                        <span class="font-bold">{{ item.task.title }}</span>
+                                        <span class="text-[10px] font-medium opacity-90">
+                                            {{ formatTime(item.task.start) }}-{{ item.task.isRunning ? 'Running' : formatTime(item.task.end) }} ({{ formatDurationHHMM(calcDuration(item.task.start, item.task.isRunning ? now : item.task.end)) }})
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="resize-handle-top z-30" 
+                                         @mousedown.stop.prevent="onMouseDownResize($event, item.task, 'actual', 'top')"
+                                         @touchstart.stop="onMouseDownResize($event, item.task, 'actual', 'top')">
+                                    </div>
+
+                                    <div v-if="!item.task.isRunning" 
+                                         class="resize-handle-bottom z-30" 
+                                         @mousedown.stop.prevent="onMouseDownResize($event, item.task, 'actual', 'bottom')"
+                                         @touchstart.stop="onMouseDownResize($event, item.task, 'actual', 'bottom')">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-if="isToday" class="absolute left-0 right-0 border-t-2 border-red-500 z-40 pointer-events-none flex items-center shadow-sm transition-all duration-1000" 
+                                 :style="{ top: getMinutesFromMidnight(now) + 'px' }">
+                                <div class="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1 shadow-md"></div>
+                            </div>
+                            
+                        </div>
+                    </div>
                 </div>
-                <div class="task-block-time">{{ task.startTime }} - {{ task.endTime }} <span class="ml-1 text-[10px]">({{ calculateDurationH(task.startTime, task.endTime) }})</span></div>
-                <div class="mt-auto flex justify-end">
-                  <button v-if="!isTaskRunning(task.id)" @click.stop="startTaskFromPlan(task)" class="action-btn text-[10px] bg-white/60 px-1.5 py-0.5 rounded hover:bg-white/90 font-medium flex items-center gap-1 shadow-sm" title="Start actual"><i class="ph ph-play"></i>Start</button>
+            </div>
+
+            <div class="lg:w-5/12 w-full bg-slate-50 flex flex-col p-2 lg:p-4 overflow-y-auto space-y-2 lg:space-y-3 select-text lg:h-full h-1/2">
+                
+                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <h2 class="text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between border-b border-slate-100 pb-1">
+                        <span><i class="fas fa-chart-pie text-emerald-600 mr-1.5"></i>Today's Projects (HH:MM)</span>
+                        <span class="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold select-all">Total: {{ dailyTotalHHMM }}</span>
+                    </h2>
+                    <div v-if="dailyProjectSummary.length === 0" class="text-[11px] text-slate-400 py-1">
+                        No actuals for today
+                    </div>
+                    <div v-else class="space-y-1">
+                        <div v-for="proj in dailyProjectSummary" :key="proj.name" class="flex justify-between items-center text-xs bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                            <span class="font-medium text-slate-700 truncate max-w-[180px]" :title="proj.name">{{ proj.name }}</span>
+                            <span class="font-mono font-bold text-emerald-700 select-all cursor-text" title="Select and copy">{{ proj.hhmm }}</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="resize-handle resize-handle-bottom"></div>
-              </div>
-            </div>
-            
-            <!-- Actual Lane -->
-            <div class="flex-1 timeline-container relative" id="actual-lane" @dblclick="handleLaneDblClick($event, 'actual')">
-              <!-- Ghost Block for Running Task Estimate -->
-              <div v-if="runningTaskGhost" class="ghost-block" :style="{ top: `${runningTaskGhost.top}px`, height: `${runningTaskGhost.height}px` }"></div>
 
-              <div v-for="task in todayActuals" :key="task.id"
-                   :data-id="task.id" data-type="actual"
-                   class="task-block actual-block text-gray-900"
-                   :class="{'running-task': task.isRunning}"
-                   :style="{ top: `${task.top}px`, height: task.isRunning ? `${Math.max(task.height, 15)}px` : `${task.height}px`, backgroundColor: getTaskColor(task.name, false) }">
-                <div v-if="!task.isRunning" class="resize-handle resize-handle-top"></div>
-                <div class="flex justify-between items-start">
-                  <div class="task-block-title" :title="task.name">
-                    <span v-if="task.isRunning" class="w-2 h-2 bg-red-500 rounded-full inline-block animate-pulse mr-1"></span>
-                    {{ task.name }}
-                  </div>
-                  <div class="flex gap-1" :class="task.isRunning ? '' : 'opacity-0 hover:opacity-100 transition-opacity'">
-                    <button v-if="task.isRunning" @click.stop="stopTask(task.id)" class="action-btn p-1 rounded bg-red-100 text-red-600 hover:bg-red-200" title="Stop task"><i class="ph ph-stop text-sm"></i></button>
-                    <button v-else @click.stop="openActualModal(task)" class="action-btn p-0.5 rounded text-gray-600 hover:text-emerald-600" title="Edit actual"><i class="ph ph-pencil-simple"></i></button>
-                    <button @click.stop="deleteTask('actual', task.id)" class="action-btn p-0.5 rounded text-gray-600 hover:text-red-600" title="Delete actual"><i class="ph ph-trash"></i></button>
-                  </div>
+                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-1 mb-1.5">
+                        <h2 class="text-xs font-bold text-slate-700 flex items-center">
+                            <i class="fas fa-history text-indigo-600 mr-1.5"></i>Task Totals
+                        </h2>
+                        <span class="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold select-all">Total: {{ filteredSummaryTotalHHMM }}</span>
+                    </div>
+                    
+                    <div class="flex flex-col gap-1.5 mb-2">
+                        <div class="flex items-center justify-between gap-1">
+                            <input type="date" v-model="summaryStartDate" class="w-full px-1 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 cursor-pointer" title="Start date">
+                            <span class="text-[10px] text-slate-400">〜</span>
+                            <input type="date" v-model="summaryEndDate" class="w-full px-1 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 cursor-pointer" title="End date">
+                        </div>
+                        <div class="relative w-full">
+                            <i class="fas fa-search absolute left-2 top-1.5 text-[10px] text-slate-400"></i>
+                            <input type="text" v-model="taskFilterKeyword" placeholder="Filter tasks..." class="w-full pl-6 pr-2 py-0.5 text-[11px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400">
+                        </div>
+                    </div>
+                    
+                    <div v-if="filteredAllTimeTaskSummary.length === 0" class="text-[11px] text-slate-400 py-1 text-center">
+                        No matching tasks
+                    </div>
+                    <div v-else class="h-32 min-h-[60px] resize-y overflow-y-auto space-y-1 pr-1 pb-1">
+                        <div v-for="taskSummary in filteredAllTimeTaskSummary" :key="taskSummary.name" class="flex justify-between items-center text-xs bg-indigo-50/50 px-2.5 py-1 rounded border border-indigo-100/60">
+                            <span class="font-medium text-indigo-900 truncate max-w-[180px]" :title="taskSummary.name">{{ taskSummary.name }}</span>
+                            <span class="font-mono font-bold text-indigo-700 select-all cursor-text">{{ taskSummary.hhmm }} <span class="text-[10px] font-normal text-slate-500">({{ taskSummary.count }})</span></span>
+                        </div>
+                    </div>
                 </div>
-                <div class="task-block-time">
-                  {{ task.startTime }} - {{ task.endTime || 'Running' }}
-                  <span v-if="!task.isRunning" class="ml-1 text-[10px]">({{ calculateDurationH(task.startTime, task.endTime) }})</span>
-                  <span v-else class="ml-1 text-[10px] font-bold text-red-600">{{ currentRunningDuration }}</span>
+
+                <div class="grid grid-cols-1 gap-2.5">
+                    <div>
+                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-exclamation-circle text-red-500 mr-1.5"></i>Issues & blockers</h2>
+                        <textarea v-model="currentReflection.issue" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="Issues or blockers from today..."></textarea>
+                    </div>
+                    <div>
+                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1.5"></i>Wins & learnings (W)</h2>
+                        <textarea v-model="currentReflection.w" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="What you learned from plan vs. actual..."></textarea>
+                    </div>
+                    <div>
+                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-arrow-right text-blue-500 mr-1.5"></i>Tomorrow's action (T)</h2>
+                        <textarea v-model="currentReflection.t" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="How to apply it tomorrow..."></textarea>
+                    </div>
                 </div>
-                <div v-if="!task.isRunning" class="resize-handle resize-handle-bottom"></div>
-              </div>
-              
-              <!-- Current Time Line (Only shown on Actual lane) -->
-              <div v-if="isToday" class="current-time-line" :style="{ top: `${currentTimeTop}px` }"></div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Panel: Reflections & Analytics -->
-      <div class="w-full md:w-80 bg-white flex flex-col shrink-0 border-t md:border-t-0 md:border-l border-gray-200 h-[50vh] md:h-auto overflow-y-auto">
-        
-        <!-- Summary Cards -->
-        <div class="p-4 border-b border-gray-100 bg-gray-50/50">
-          <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1 mb-2"><i class="ph ph-chart-pie-slice"></i> Today's Summary by Project (HH:MM)</h3>
-          <div class="space-y-1">
-            <div v-for="(duration, project) in todayProjectSummary" :key="project" class="flex justify-between items-center text-xs p-1.5 rounded bg-white shadow-sm border border-gray-100">
-              <span class="font-medium truncate flex-1 flex items-center gap-1">
-                <span class="w-3 h-3 rounded-sm inline-block" :style="{ backgroundColor: getProjectColor(project, false) }"></span>
-                {{ project || 'No Project' }}
-              </span>
-              <span class="font-bold text-gray-600 ml-2 font-mono bg-gray-50 px-1 rounded">{{ formatMinutesToHHMM(duration) }}</span>
-            </div>
-            <div v-if="Object.keys(todayProjectSummary).length > 0" class="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-200 font-bold px-1.5">
-              <span>Total:</span>
-              <span class="font-mono text-emerald-700 bg-emerald-50 px-1 rounded">{{ formatMinutesToHHMM(todayTotalActualMinutes) }}</span>
-            </div>
-            <div v-if="Object.keys(todayProjectSummary).length === 0" class="text-xs text-gray-400 italic text-center py-2">
-              No actual data for today yet.
-            </div>
-          </div>
-        </div>
-        
-        <!-- All-Time Task Summary -->
-        <div class="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col min-h-0">
-          <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1 mb-2"><i class="ph ph-list-numbers"></i> All-Time Task Summary</h3>
-          <div class="flex gap-2 mb-2 text-xs">
-            <input type="date" v-model="summaryStartDate" class="border rounded px-1 py-0.5 flex-1 w-full bg-white text-gray-600" title="Start Date">
-            <span class="text-gray-400 self-center">-</span>
-            <input type="date" v-model="summaryEndDate" class="border rounded px-1 py-0.5 flex-1 w-full bg-white text-gray-600" title="End Date">
-          </div>
-          <div class="mb-2 relative">
-            <input type="text" v-model="taskFilterQuery" placeholder="Filter by keyword..." class="w-full text-xs border border-gray-200 rounded pl-7 pr-2 py-1.5 focus:outline-none focus:border-blue-400 bg-white">
-            <i class="ph ph-magnifying-glass absolute left-2 top-2 text-gray-400"></i>
-          </div>
-          <!-- Resizable height class added here -->
-          <div class="h-32 min-h-[60px] resize-y overflow-y-auto space-y-1 bg-white p-2 rounded border border-gray-100 shadow-inner">
-            <div v-for="item in filteredTaskSummary" :key="item.name" class="flex justify-between items-center text-xs py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50">
-              <span class="font-medium truncate flex-1" :title="item.name">{{ item.name }}</span>
-              <div class="flex items-center gap-2 ml-2 shrink-0">
-                <span class="text-[10px] text-gray-400">({{ item.count }} times)</span>
-                <span class="font-bold text-gray-600 font-mono w-10 text-right">{{ formatMinutesToHHMM(item.totalMinutes) }}</span>
-              </div>
-            </div>
-            <div v-if="filteredTaskSummary.length === 0" class="text-xs text-gray-400 italic text-center py-4">
-              No matching tasks.
-            </div>
-          </div>
         </div>
 
-        <!-- Reflection Forms -->
-        <div class="p-4 flex-1 flex flex-col gap-4 bg-white">
-          <div class="flex flex-col h-full">
-            <label class="text-xs font-bold text-red-800 mb-1 flex items-center gap-1"><i class="ph ph-warning-circle"></i> Issues / Problems / Concerns</label>
-            <textarea v-model="todayRecord.issues" placeholder="Any issues or problems noticed during today's work..." class="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 bg-red-50/20 resize-y min-h-[40px] flex-1"></textarea>
-          </div>
-          <div class="flex flex-col h-full">
-            <label class="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1"><i class="ph ph-lightbulb"></i> Discoveries (W)</label>
-            <textarea v-model="todayRecord.discoveries" placeholder="What I noticed from the gap between plan and actual..." class="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 bg-blue-50/20 resize-y min-h-[40px] flex-1"></textarea>
-          </div>
-          <div class="flex flex-col h-full">
-            <label class="text-xs font-bold text-emerald-800 mb-1 flex items-center gap-1"><i class="ph ph-rocket-launch"></i> Next Actions (T)</label>
-            <textarea v-model="todayRecord.actions" placeholder="How to apply this tomorrow..." class="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 bg-emerald-50/20 resize-y min-h-[40px] flex-1"></textarea>
-          </div>
+        <div v-if="copyDateModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                <h3 class="font-bold text-base mb-3 text-slate-800 flex items-center justify-between">
+                    <span><i class="fas fa-calendar-alt text-indigo-600 mr-2"></i>Copy {{ copyDateModal.type === 'plan' ? 'plans' : 'actuals' }}</span>
+                    <button @click="copyDateModal.show = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </h3>
+                <p class="text-xs text-slate-500 mb-3">Select a source date. Data will be copied to {{ currentDate }}.</p>
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Source date</label>
+                    <input type="date" v-model="copyDateModal.sourceDate" class="w-full border border-slate-300 p-2 text-sm rounded-lg outline-none focus:border-indigo-500">
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button @click="copyDateModal.show = false" class="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Cancel</button>
+                    <button @click="executeDateCopy" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-sm">Copy</button>
+                </div>
+            </div>
         </div>
-      </div>
+
+        <div v-if="reportModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 flex flex-col max-h-[90vh]">
+                <h3 class="font-bold text-base mb-3 text-slate-800 flex items-center justify-between">
+                    <span><i class="fas fa-file-alt text-indigo-600 mr-2"></i>Report preview (Markdown) ({{ currentDate }})</span>
+                    <button @click="reportModal.show = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </h3>
+                <div class="flex-1 overflow-y-auto bg-slate-50 p-3.5 rounded-lg border border-slate-200 font-mono text-xs whitespace-pre-wrap text-slate-700 leading-relaxed select-text" id="report-text-area">{{ generatedReportText }}</div>
+                <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-100">
+                    <span class="text-[11px] text-slate-400"><i class="fas fa-info-circle mr-1"></i>Copy as Markdown</span>
+                    <div class="flex gap-2">
+                        <button @click="reportModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Close</button>
+                        <button @click="copyReportToClipboard" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-sm flex items-center gap-1.5">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="planModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                <h3 class="font-bold text-lg mb-4 text-slate-800">
+                    <i class="fas fa-calendar-plus text-blue-600 mr-2"></i>{{ planModal.isEdit ? 'Edit plan' : 'Add plan' }}
+                </h3>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Date</label>
+                        <input type="date" v-model="planModal.form.date" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Task</label>
+                        <input type="text" v-model="planModal.form.title" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500" placeholder="e.g. [Project A] Draft proposal">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Start</label>
+                            <input type="time" v-model="planModal.form.startTime" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">End</label>
+                            <input type="time" v-model="planModal.form.endTime" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-100">
+                    <button v-if="planModal.isEdit" @click="deletePlanModal" class="text-red-500 hover:text-red-700 text-xs font-bold px-3 py-2">
+                        <i class="fas fa-trash mr-1"></i> Delete
+                    </button>
+                    <div v-else></div>
+                    <div class="flex gap-2">
+                        <button @click="planModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Cancel</button>
+                        <button @click="savePlan" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-bold shadow-sm">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="actualModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                <h3 class="font-bold text-lg mb-4 text-slate-800">
+                    <i class="fas fa-edit text-emerald-600 mr-2"></i>{{ actualModal.isEdit ? 'Edit actual' : 'Add actual' }}
+                </h3>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Date</label>
+                        <input type="date" v-model="actualModal.form.date" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Task</label>
+                        <input type="text" v-model="actualModal.form.title" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500" placeholder="e.g. [Project A] Draft proposal">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Start</label>
+                            <input type="time" v-model="actualModal.form.startTime" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">End <span v-if="actualModal.isEdit && actualModal.target && actualModal.target.isRunning" class="text-xs text-emerald-600 font-normal">(Running)</span></label>
+                            <input type="time" v-model="actualModal.form.endTime" :disabled="actualModal.isEdit && actualModal.target && actualModal.target.isRunning" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-100">
+                    <button v-if="actualModal.isEdit" @click="deleteActualModal" class="text-red-500 hover:text-red-700 text-xs font-bold px-3 py-2">
+                        <i class="fas fa-trash mr-1"></i> Delete
+                    </button>
+                    <div v-else></div>
+                    <div class="flex gap-2">
+                        <button @click="actualModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Cancel</button>
+                        <button @click="saveActual" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-xs font-bold shadow-sm">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Date Picker Modal (For Copying) -->
-    <div v-if="showCopyDateModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
-        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h2 class="font-bold text-gray-700">Copy Plan/Actual from another date</h2>
-          <button @click="showCopyDateModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x text-lg"></i></button>
-        </div>
-        <div class="p-4">
-          <p class="text-sm text-gray-600 mb-4">Select the source date. The data from the selected date will be copied to today ({{ todayString }}).</p>
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Source Date</label>
-            <input type="date" v-model="copySourceDate" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500">
-          </div>
-          <div class="flex justify-end gap-2 mt-6">
-            <button @click="showCopyDateModal = false" class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
-            <button @click="executeCopyByDate" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm flex items-center gap-1">
-              <i class="ph ph-copy"></i> Execute Copy
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <script>
+        const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
 
-    <!-- Report Preview Modal -->
-    <div v-if="showReportModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-          <h2 class="font-bold text-gray-700 flex items-center gap-2"><i class="ph ph-file-text text-xl"></i> Daily Report Auto-Preview (Markdown)</h2>
-          <button @click="showReportModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x text-lg"></i></button>
-        </div>
-        <div class="p-6 overflow-y-auto flex-1 bg-white">
-          <p class="text-xs text-gray-500 mb-4 flex items-center gap-1"><i class="ph ph-info"></i> One-click copy in Markdown format.</p>
-          <div class="border border-gray-200 rounded p-4 bg-gray-50/50">
-            <!-- Render Markdown simple view for preview -->
-            <div class="md-preview text-sm text-gray-800" v-html="reportHtmlPreview"></div>
-          </div>
-        </div>
-        <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 shrink-0">
-          <button @click="showReportModal = false" class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50 font-medium">Close</button>
-          <button @click="copyReportToClipboard" class="px-5 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm font-bold flex items-center gap-2">
-            <i class="ph ph-copy text-lg"></i> Copy
-          </button>
-        </div>
-      </div>
-    </div>
+        createApp({
+            setup() {
+                const getLocalDateString = (d = new Date()) => {
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                };
 
-    <!-- Plan Task Edit Modal -->
-    <div v-if="showPlanModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
-        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-blue-50">
-          <h2 class="font-bold text-blue-800">{{ editingTask?.id ? 'Edit Plan' : 'Add Plan' }}</h2>
-          <button @click="showPlanModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x"></i></button>
-        </div>
-        <form @submit.prevent="savePlanTask" class="p-4">
-          <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
-            <input type="date" v-model="taskForm.date" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
-          </div>
-          <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Task Name</label>
-            <input type="text" v-model="taskForm.name" required placeholder="e.g. [Project A] Draft Proposal" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500" ref="planNameInput">
-          </div>
-          <div class="flex gap-3 mb-4">
-            <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
-              <input type="time" v-model="taskForm.startTime" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
-            </div>
-            <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-700 mb-1">End Time</label>
-              <input type="time" v-model="taskForm.endTime" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
-            </div>
-          </div>
-          <div class="flex justify-between items-center mt-6">
-            <button type="button" v-if="editingTask?.id" @click="deleteTask('plan', editingTask.id); showPlanModal = false" class="text-xs text-red-600 hover:text-red-800 px-2 py-1">Delete</button>
-            <div v-else></div>
-            <div class="flex gap-2">
-              <button type="button" @click="showPlanModal = false" class="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button type="submit" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+                const currentDate = ref(getLocalDateString());
+                const now = ref(new Date());
+                let timer = null;
 
-    <!-- Actual Task Edit Modal -->
-    <div v-if="showActualModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
-        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-emerald-50">
-          <h2 class="font-bold text-emerald-800">{{ editingTask?.id ? 'Edit Actual' : 'Add Actual Directly' }}</h2>
-          <button @click="showActualModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x"></i></button>
-        </div>
-        <form @submit.prevent="saveActualTask" class="p-4">
-          <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
-            <input type="date" v-model="taskForm.date" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500">
-          </div>
-          <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Task Name</label>
-            <input type="text" v-model="taskForm.name" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500" ref="actualNameInput">
-          </div>
-          <div class="flex gap-3 mb-4">
-            <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
-              <input type="time" v-model="taskForm.startTime" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500">
-            </div>
-            <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-700 mb-1">End Time</label>
-              <input type="time" v-model="taskForm.endTime" :required="!taskForm.isRunning" :disabled="taskForm.isRunning" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-400">
-            </div>
-          </div>
-          <div class="mb-4 flex items-center">
-             <input type="checkbox" id="isRunningCb" v-model="taskForm.isRunning" class="mr-2 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4">
-             <label for="isRunningCb" class="text-sm font-medium text-gray-700">(Running)</label>
-          </div>
-          <div class="flex justify-between items-center mt-6">
-            <button type="button" v-if="editingTask?.id" @click="deleteTask('actual', editingTask.id); showActualModal = false" class="text-xs text-red-600 hover:text-red-800 px-2 py-1">Delete</button>
-            <div v-else></div>
-            <div class="flex gap-2">
-              <button type="button" @click="showActualModal = false" class="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button type="submit" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700">Save</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+                const taskFilterKeyword = ref('');
 
-  </div>
+                const getFirstDayOfMonth = (dateString) => {
+                    const d = new Date(dateString);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+                };
+                const getLastDayOfMonth = (dateString) => {
+                    const d = new Date(dateString);
+                    const next = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+                };
 
-  <script>
-    const { createApp } = Vue;
+                const summaryStartDate = ref(getFirstDayOfMonth(currentDate.value));
+                const summaryEndDate = ref(getLastDayOfMonth(currentDate.value));
 
-    // --- Helper Functions ---
-    const generateId = () => Math.random().toString(36).substr(2, 9);
-    
-    // Convert "HH:MM" to minutes from 00:00
-    const timeToMinutes = (timeStr) => {
-      if(!timeStr) return 0;
-      const [h, m] = timeStr.split(':').map(Number);
-      return h * 60 + m;
-    };
-    
-    // Convert minutes from 00:00 to "HH:MM"
-    const minutesToTime = (mins) => {
-      mins = Math.max(0, Math.min(1439, mins)); // 0 to 23:59
-      const h = Math.floor(mins / 60);
-      const m = Math.floor(mins % 60);
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    };
-
-    // Calculate Y position based on time (60px per hour = 1px per min)
-    const calculateTop = (timeStr) => timeToMinutes(timeStr);
-    
-    // Calculate Height based on start and end times
-    const calculateHeight = (startStr, endStr) => {
-      if(!startStr || !endStr) return 60;
-      const h = timeToMinutes(endStr) - timeToMinutes(startStr);
-      return h > 0 ? h : 15; // Minimum 15 mins
-    };
-
-    // Extract project name from task string like "[Project A] Task details"
-    const extractProject = (taskName) => {
-      const match = taskName.match(/^\[(.*?)\]/);
-      return match ? match[1] : '';
-    };
-
-    // Color Palette generator for projects (Pastel/vibrant variations for plan vs actual)
-    const colorPalette = [
-      { plan: '#dbeafe', actual: '#93c5fd', name: 'blue' },
-      { plan: '#dcfce7', actual: '#86efac', name: 'green' },
-      { plan: '#fef08a', actual: '#fde047', name: 'yellow' },
-      { plan: '#fce7f3', actual: '#f9a8d4', name: 'pink' },
-      { plan: '#e0e7ff', actual: '#a5b4fc', name: 'indigo' },
-      { plan: '#ffedd5', actual: '#fdba74', name: 'orange' },
-      { plan: '#f3e8ff', actual: '#d8b4fe', name: 'purple' },
-      { plan: '#ccfbf1', actual: '#5eead4', name: 'teal' }
-    ];
-    let projectColorMap = {};
-    let colorIndex = 0;
-
-    const getProjectColor = (project, isPlan) => {
-      if (!project) return isPlan ? '#f1f5f9' : '#cbd5e1'; // Default gray for no-project
-      if (!projectColorMap[project]) {
-        projectColorMap[project] = colorPalette[colorIndex % colorPalette.length];
-        colorIndex++;
-      }
-      return isPlan ? projectColorMap[project].plan : projectColorMap[project].actual;
-    };
-
-    const getTaskColor = (taskName, isPlan) => {
-      const project = extractProject(taskName);
-      return getProjectColor(project, isPlan);
-    };
-
-    // Format YYYY-MM-DD
-    const formatDateStr = (dateObj) => {
-      const d = new Date(dateObj);
-      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      return d.toISOString().split('T')[0];
-    };
-
-    createApp({
-      data() {
-        return {
-          currentDate: formatDateStr(new Date()),
-          currentTimeTop: 0,
-          currentRunningDuration: '00:00',
-          timerInterval: null,
-          timeIndicatorInterval: null,
-          
-          records: {}, // { 'YYYY-MM-DD': { plans: [], actuals: [], issues: '', discoveries: '', actions: '' } }
-          
-          showPlanModal: false,
-          showActualModal: false,
-          showReportModal: false,
-          showCopyDateModal: false,
-          
-          taskForm: { id: '', name: '', startTime: '', endTime: '', date: '', isRunning: false },
-          editingTask: null,
-          targetLane: 'plan', // 'plan' or 'actual'
-          copySourceDate: '',
-          copyTargetType: 'plan',
-
-          summaryStartDate: '',
-          summaryEndDate: '',
-          taskFilterQuery: ''
-        }
-      },
-      computed: {
-        todayString() { return this.currentDate; },
-        isToday() { return this.currentDate === formatDateStr(new Date()); },
-        todayRecord() {
-          if (!this.records[this.todayString]) {
-            this.records[this.todayString] = { plans: [], actuals: [], issues: '', discoveries: '', actions: '' };
-          }
-          return this.records[this.todayString];
-        },
-        todayPlans() {
-          return this.todayRecord.plans.map(t => ({
-            ...t,
-            top: calculateTop(t.startTime),
-            height: calculateHeight(t.startTime, t.endTime)
-          })).sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-        },
-        todayActuals() {
-          return this.todayRecord.actuals.map(t => ({
-            ...t,
-            top: calculateTop(t.startTime),
-            height: t.isRunning ? calculateHeight(t.startTime, minutesToTime(this.currentTimeTop)) : calculateHeight(t.startTime, t.endTime)
-          })).sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-        },
-        runningTask() {
-          return this.todayRecord.actuals.find(t => t.isRunning);
-        },
-        runningTaskGhost() {
-          if (!this.runningTask || !this.runningTask.endTime) return null;
-          return {
-            top: calculateTop(this.runningTask.startTime),
-            height: calculateHeight(this.runningTask.startTime, this.runningTask.endTime)
-          };
-        },
-        todayProjectSummary() {
-          const summary = {};
-          this.todayRecord.actuals.forEach(task => {
-            const proj = extractProject(task.name);
-            let mins = 0;
-            if (task.isRunning) {
-              mins = Math.max(1, timeToMinutes(minutesToTime(this.currentTimeTop)) - timeToMinutes(task.startTime));
-            } else {
-              mins = timeToMinutes(task.endTime) - timeToMinutes(task.startTime);
-            }
-            if (mins > 0) {
-              summary[proj] = (summary[proj] || 0) + mins;
-            }
-          });
-          return summary;
-        },
-        todayTotalActualMinutes() {
-          return Object.values(this.todayProjectSummary).reduce((sum, val) => sum + val, 0);
-        },
-        
-        // ---- Cross-date Task Summary ----
-        allTimeTaskStats() {
-          const stats = {};
-          
-          let startD = this.summaryStartDate ? new Date(this.summaryStartDate) : new Date(0);
-          let endD = this.summaryEndDate ? new Date(this.summaryEndDate) : new Date(8640000000000000); // Max date
-
-          for (const [dateStr, record] of Object.entries(this.records)) {
-             const d = new Date(dateStr);
-             if (d >= startD && d <= endD) {
-                 record.actuals.forEach(task => {
-                    let mins = 0;
-                    if(task.isRunning && dateStr === formatDateStr(new Date())) {
-                       mins = Math.max(1, timeToMinutes(minutesToTime(this.currentTimeTop)) - timeToMinutes(task.startTime));
-                    } else if(!task.isRunning) {
-                       mins = timeToMinutes(task.endTime) - timeToMinutes(task.startTime);
+                watch(currentDate, (newVal, oldVal) => {
+                    const newD = new Date(newVal);
+                    const oldD = new Date(oldVal);
+                    // Update only when the year or month changes
+                    if (newD.getFullYear() !== oldD.getFullYear() || newD.getMonth() !== oldD.getMonth()) {
+                        summaryStartDate.value = getFirstDayOfMonth(newVal);
+                        summaryEndDate.value = getLastDayOfMonth(newVal);
                     }
-                    if(mins > 0) {
-                       if(!stats[task.name]) stats[task.name] = { name: task.name, totalMinutes: 0, count: 0 };
-                       stats[task.name].totalMinutes += mins;
-                       stats[task.name].count += 1;
+                });
+
+                const createTaskId = (prefix) => {
+                    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                        return `${prefix}_${window.crypto.randomUUID()}`;
                     }
-                 });
-             }
-          }
-          return Object.values(stats).sort((a,b) => b.totalMinutes - a.totalMinutes);
-        },
-        filteredTaskSummary() {
-           let list = this.allTimeTaskStats;
-           if(this.taskFilterQuery) {
-              const q = this.taskFilterQuery.toLowerCase();
-              list = list.filter(t => t.name.toLowerCase().includes(q));
-           }
-           return list;
-        },
+                    return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+                };
 
-        // ---- Report Generation ----
-        markdownReport() {
-          const d = this.todayRecord;
-          const projSummary = this.todayProjectSummary;
-          const totalMins = this.todayTotalActualMinutes;
-          
-          let md = `# Daily Report (${this.currentDate})\n\n`;
-          
-          md += `## Today's Actuals\n`;
-          md += `**[Summary by Project (Total: ${this.formatMinutesToHHMM(totalMins)})]**\n`;
-          if (Object.keys(projSummary).length === 0) {
-            md += `- No data\n`;
-          } else {
-            for (const [proj, mins] of Object.entries(projSummary)) {
-              md += `- ${proj || 'No Project'}: ${this.formatMinutesToHHMM(mins)}\n`;
+                const extractProjectName = (title) => {
+                    if (!title) return 'Other';
+                    const bracketMatch = title.match(/\[(.*?)\]/);
+                    if (bracketMatch && bracketMatch[1]) {
+                        return bracketMatch[1].trim();
+                    }
+                    const parts = title.split(/[\s ]+/);
+                    if (parts.length > 1 && parts[0].length <= 15) {
+                        return parts[0];
+                    }
+                    return title.trim();
+                };
+
+                // --- Project color coding ---
+                const getProjectColorStyle = (title, type) => {
+                    const projName = extractProjectName(title);
+                    let hash = 0;
+                    for (let i = 0; i < projName.length; i++) {
+                        hash = projName.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const colorIndex = Math.abs(hash) % 16;
+                    
+                    // 16-color palette
+                    // Plans use lighter shades; actuals use darker shades
+                    const palettes = [
+                        { plan:{bg:'#eff6ff',border:'#bfdbfe',text:'#1e3a8a'}, actual:{bg:'#bfdbfe',border:'#3b82f6',text:'#1e3a8a'} },
+                        { plan:{bg:'#ecfdf5',border:'#a7f3d0',text:'#064e3b'}, actual:{bg:'#a7f3d0',border:'#10b981',text:'#064e3b'} },
+                        { plan:{bg:'#fffbeb',border:'#fde68a',text:'#78350f'}, actual:{bg:'#fde68a',border:'#f59e0b',text:'#78350f'} },
+                        { plan:{bg:'#fff1f2',border:'#fecdd3',text:'#881337'}, actual:{bg:'#fecdd3',border:'#f43f5e',text:'#881337'} },
+                        { plan:{bg:'#faf5ff',border:'#e9d5ff',text:'#581c87'}, actual:{bg:'#e9d5ff',border:'#a855f7',text:'#581c87'} },
+                        { plan:{bg:'#ecfeff',border:'#a5f3fc',text:'#164e63'}, actual:{bg:'#a5f3fc',border:'#06b6d4',text:'#164e63'} },
+                        { plan:{bg:'#fff7ed',border:'#fed7aa',text:'#7c2d12'}, actual:{bg:'#fed7aa',border:'#f97316',text:'#7c2d12'} },
+                        { plan:{bg:'#eef2ff',border:'#c7d2fe',text:'#312e81'}, actual:{bg:'#c7d2fe',border:'#6366f1',text:'#312e81'} },
+
+                        { plan:{bg:'#f7fee7',border:'#d9f99d',text:'#365314'}, actual:{bg:'#d9f99d',border:'#84cc16',text:'#365314'} },
+                        { plan:{bg:'#f0fdfa',border:'#99f6e4',text:'#134e4a'}, actual:{bg:'#99f6e4',border:'#14b8a6',text:'#134e4a'} },
+                        { plan:{bg:'#fdf2f8',border:'#fbcfe8',text:'#831843'}, actual:{bg:'#fbcfe8',border:'#ec4899',text:'#831843'} },
+                        { plan:{bg:'#f0f9ff',border:'#bae6fd',text:'#0c4a6e'}, actual:{bg:'#bae6fd',border:'#0ea5e9',text:'#0c4a6e'} },
+                        { plan:{bg:'#f5f3ff',border:'#ddd6fe',text:'#4c1d95'}, actual:{bg:'#ddd6fe',border:'#8b5cf6',text:'#4c1d95'} },
+                        { plan:{bg:'#fef2f2',border:'#fecaca',text:'#7f1d1d'}, actual:{bg:'#fecaca',border:'#ef4444',text:'#7f1d1d'} },
+                        { plan:{bg:'#f0fdf4',border:'#bbf7d0',text:'#14532d'}, actual:{bg:'#bbf7d0',border:'#22c55e',text:'#14532d'} },
+                        { plan:{bg:'#fefce8',border:'#fef08a',text:'#713f12'}, actual:{bg:'#fef08a',border:'#eab308',text:'#713f12'} }
+                    ];
+                    
+                    const palette = palettes[colorIndex];
+                    const colors = type === 'plan' ? palette.plan : palette.actual;
+                    
+                    return {
+                        backgroundColor: colors.bg,
+                        borderColor: colors.border,
+                        color: colors.text
+                    };
+                };
+
+                const getGhostProjectStyle = (title) => {
+                    const projName = extractProjectName(title);
+                    let hash = 0;
+                    for (let i = 0; i < projName.length; i++) {
+                        hash = projName.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const colorIndex = Math.abs(hash) % 16;
+                    const borderColors = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#06b6d4', '#f97316', '#6366f1'];
+                    return { borderColor: borderColors[colorIndex] };
+                };
+
+                const loadLocalStorage = (key, fallback) => {
+                    // Migrate data from the old Time Copilot
+                    const oldKeys = {
+                        'psp_plans': 'tc_plans',
+                        'psp_actuals': 'tc_actuals',
+                        'psp_reflections': 'tc_reflections'
+                    };
+                    
+                    let saved = localStorage.getItem(key);
+                    
+                    if (!saved && oldKeys[key]) {
+                        saved = localStorage.getItem(oldKeys[key]);
+                        if (saved) {
+                            localStorage.setItem(key, saved); // Save old data under the new key
+                        }
+                    }
+
+                    if (!saved) return fallback;
+                    try {
+                        const parsed = JSON.parse(saved);
+                        const seen = new Set();
+                        const uniqueItems = [];
+
+                        parsed.forEach(item => {
+                            const normalized = {
+                                ...item,
+                                id: String(item.id || createTaskId(key.startsWith('psp_actual') ? 'act' : 'p')),
+                                start: new Date(item.start),
+                                end: item.end ? new Date(item.end) : null
+                            };
+
+                            if (seen.has(normalized.id)) return;
+                            seen.add(normalized.id);
+                            uniqueItems.push(normalized);
+                        });
+
+                        return uniqueItems;
+                    } catch (e) { return fallback; }
+                };
+
+                const plans = ref(loadLocalStorage('psp_plans', [
+                    { id: 'p1', title: 'Standup & email', start: new Date(`${currentDate.value}T09:00:00`), end: new Date(`${currentDate.value}T09:15:00`) },
+                    { id: 'p2', title: '[Project A] Proposal draft', start: new Date(`${currentDate.value}T09:15:00`), end: new Date(`${currentDate.value}T11:30:00`) },
+                ]));
+
+                const actuals = ref(loadLocalStorage('psp_actuals', []));
+                const reflections = ref(JSON.parse(localStorage.getItem('psp_reflections') || '{}'));
+
+                watch(plans, (val) => localStorage.setItem('psp_plans', JSON.stringify(val)), { deep: true });
+                watch(actuals, (val) => localStorage.setItem('psp_actuals', JSON.stringify(val)), { deep: true });
+                watch(reflections, (val) => localStorage.setItem('psp_reflections', JSON.stringify(val)), { deep: true });
+
+                // --- Copy plans and actuals (offset or date) ---
+                const copyPlansFromOffset = (offsetDays) => {
+                    const targetDate = new Date(currentDate.value);
+                    targetDate.setDate(targetDate.getDate() + offsetDays);
+                    executeCopy('plan', getLocalDateString(targetDate));
+                };
+
+                const copyActualsFromPlan = () => {
+                    const sourcePlans = plans.value.filter(p => matchesDate(p.start, currentDate.value));
+                    if (sourcePlans.length === 0) {
+                        alert('No plans found for today.');
+                        return;
+                    }
+                    if (confirm(`Copy ${sourcePlans.length} plans to actuals?`)) {
+                        sourcePlans.forEach(src => {
+                            const startH = String(src.start.getHours()).padStart(2, '0');
+                            const startM = String(src.start.getMinutes()).padStart(2, '0');
+                            const endH = src.end ? String(src.end.getHours()).padStart(2, '0') : startH;
+                            const endM = src.end ? String(src.end.getMinutes()).padStart(2, '0') : startM;
+
+                            actuals.value.push({
+                                id: createTaskId('act'),
+                                title: src.title,
+                                start: new Date(`${currentDate.value}T${startH}:${startM}:00`),
+                                end: new Date(`${currentDate.value}T${endH}:${endM}:00`),
+                                isRunning: false,
+                                targetMinutes: null
+                            });
+                        });
+                        alert("Today's plans copied to actuals.");
+                    }
+                };
+
+                const copyDateModal = ref({ show: false, type: 'plan', sourceDate: currentDate.value });
+                const openCopyDateModal = (type) => {
+                    const d = new Date(currentDate.value);
+                    d.setDate(d.getDate() - 1);
+                    copyDateModal.value = { show: true, type: type, sourceDate: getLocalDateString(d) };
+                };
+
+                const executeDateCopy = () => {
+                    const type = copyDateModal.value.type;
+                    const srcDateStr = copyDateModal.value.sourceDate;
+                    copyDateModal.value.show = false;
+                    executeCopy(type, srcDateStr);
+                };
+
+                const executeCopy = (type, srcDateStr) => {
+                    const targetList = type === 'plan' ? plans : actuals;
+                    const sourceItems = targetList.value.filter(item => matchesDate(item.start, srcDateStr));
+
+                    if (sourceItems.length === 0) {
+                        alert(`No ${type === 'plan' ? 'plans' : 'actuals'} found for ${srcDateStr}.`);
+                        return;
+                    }
+
+                    const typeName = type === 'plan' ? 'plans' : 'actuals';
+                    if (confirm(`Copy ${sourceItems.length} ${typeName} from ${srcDateStr} to ${currentDate.value}?`)) {
+                        sourceItems.forEach(src => {
+                            const startH = String(src.start.getHours()).padStart(2, '0');
+                            const startM = String(src.start.getMinutes()).padStart(2, '0');
+                            const endH = src.end ? String(src.end.getHours()).padStart(2, '0') : startH;
+                            const endM = src.end ? String(src.end.getMinutes()).padStart(2, '0') : startM;
+
+                            const newStart = new Date(`${currentDate.value}T${startH}:${startM}:00`);
+                            const newEnd = src.end ? new Date(`${currentDate.value}T${endH}:${endM}:00`) : null;
+
+                            targetList.value.push({
+                                id: createTaskId(type === 'plan' ? 'p' : 'act'),
+                                title: src.title,
+                                start: newStart,
+                                end: newEnd,
+                                ...(type === 'actual' ? { isRunning: false, targetMinutes: null } : {})
+                            });
+                        });
+                        alert(`${typeName} copied.`);
+                    }
+                };
+
+                const exportJson = () => {
+                    const data = { plans: plans.value, actuals: actuals.value, reflections: reflections.value };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `psp_copilot_backup_${getLocalDateString()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                const importJson = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const json = JSON.parse(event.target.result);
+                            if (json.plans) plans.value = json.plans.map(p => ({ ...p, start: new Date(p.start), end: p.end ? new Date(p.end) : null }));
+                            if (json.actuals) actuals.value = json.actuals.map(a => ({ ...a, start: new Date(a.start), end: a.end ? new Date(a.end) : null }));
+                            if (json.reflections) reflections.value = json.reflections;
+                            alert('Data imported.');
+                        } catch (err) {
+                            alert('Import failed. Check the JSON file.');
+                        }
+                        e.target.value = '';
+                    };
+                    reader.readAsText(file);
+                };
+
+                onMounted(() => {
+                    timer = setInterval(() => { now.value = new Date(); }, 60000);
+                    setTimeout(() => {
+                        const container = document.getElementById('timeline');
+                        if (container) {
+                            const currentMins = getMinutesFromMidnight(now.value);
+                            container.scrollTop = Math.max(0, currentMins - 200);
+                        }
+                    }, 100);
+                });
+
+                onUnmounted(() => { clearInterval(timer); });
+
+                const isToday = computed(() => currentDate.value === getLocalDateString());
+                const matchesDate = (dateObj, targetDateStr) => {
+                    if (!dateObj) return false;
+                    return getLocalDateString(dateObj) === targetDateStr;
+                };
+
+                const dailyPlans = computed(() => plans.value.filter(p => matchesDate(p.start, currentDate.value)));
+                const dailyActuals = computed(() => actuals.value.filter(a => matchesDate(a.start, currentDate.value)));
+
+                const formatDurationHHMM = (totalMins) => {
+                    const h = Math.floor(totalMins / 60);
+                    const m = totalMins % 60;
+                    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                };
+
+                const dailyProjectSummary = computed(() => {
+                    const map = {};
+                    dailyActuals.value.forEach(act => {
+                        const proj = extractProjectName(act.title);
+                        const endObj = act.isRunning ? now.value : (act.end || act.start);
+                        const mins = calcDuration(act.start, endObj);
+                        if (!map[proj]) map[proj] = 0;
+                        map[proj] += mins;
+                    });
+
+                    return Object.keys(map).map(name => ({
+                        name, totalMins: map[name], hhmm: formatDurationHHMM(map[name])
+                    })).sort((a, b) => b.totalMins - a.totalMins);
+                });
+
+                const dailyTotalHHMM = computed(() => {
+                    const totalMins = dailyProjectSummary.value.reduce((acc, cur) => acc + cur.totalMins, 0);
+                    return formatDurationHHMM(totalMins);
+                });
+
+                const allTimeTaskSummary = computed(() => {
+                    const map = {};
+                    const startStr = summaryStartDate.value;
+                    const endStr = summaryEndDate.value;
+
+                    actuals.value.forEach(act => {
+                        const actDateStr = getLocalDateString(act.start);
+                        
+                        // Skip tasks outside the selected period
+                        if (startStr && actDateStr < startStr) return;
+                        if (endStr && actDateStr > endStr) return;
+
+                        const title = (act.title || '').trim();
+                        if (!title) return;
+                        const endObj = act.isRunning ? now.value : (act.end || act.start);
+                        const mins = calcDuration(act.start, endObj);
+                        if (!map[title]) map[title] = { totalMins: 0, count: 0 };
+                        map[title].totalMins += mins;
+                        map[title].count += 1;
+                    });
+
+                    return Object.keys(map).map(name => ({
+                        name, totalMins: map[name].totalMins, count: map[name].count, hhmm: formatDurationHHMM(map[name].totalMins)
+                    })).sort((a, b) => b.totalMins - a.totalMins);
+                });
+
+                const filteredAllTimeTaskSummary = computed(() => {
+                    const keyword = (taskFilterKeyword.value || '').toLowerCase().trim();
+                    if (!keyword) return allTimeTaskSummary.value;
+                    return allTimeTaskSummary.value.filter(item => item.name.toLowerCase().includes(keyword));
+                });
+
+                const filteredSummaryTotalHHMM = computed(() => {
+                    const totalMins = filteredAllTimeTaskSummary.value.reduce((acc, cur) => acc + cur.totalMins, 0);
+                    return formatDurationHHMM(totalMins);
+                });
+
+                const reportModal = ref({ show: false });
+                const currentReflection = computed(() => {
+                    if (!reflections.value[currentDate.value]) {
+                        reflections.value[currentDate.value] = { w: '', t: '', issue: '' };
+                    }
+                    return reflections.value[currentDate.value];
+                });
+
+                const generatedReportText = computed(() => {
+                    const dateStr = currentDate.value;
+                    const projSummaryStr = dailyProjectSummary.value.map(p => `- **${p.name}**: ${p.hhmm}`).join('\n');
+                    const tasksListStr = dailyActuals.value.map(a => {
+                        const endObj = a.isRunning ? now.value : (a.end || a.start);
+                        return `- ${formatTime(a.start)}-${a.isRunning ? 'Running' : formatTime(a.end)} [${formatDurationHHMM(calcDuration(a.start, endObj))}] ${a.title}`;
+                    }).join('\n');
+
+                    const nextDateObj = new Date(currentDate.value);
+                    nextDateObj.setDate(nextDateObj.getDate() + 1);
+                    const nextDateStr = getLocalDateString(nextDateObj);
+                    const nextPlans = plans.value.filter(p => matchesDate(p.start, nextDateStr));
+                    const nextPlansStr = nextPlans.length > 0 
+                        ? nextPlans.map(p => `- ${formatTime(p.start)}〜${formatTime(p.end)} ${p.title}`).join('\n')
+                        : '- None';
+                    const ref = currentReflection.value;
+
+                          return `# Daily Report (${dateStr})\n` +
+                              `\n## Today's work (Actuals)\n` +
+                              (projSummaryStr ? `**Project totals (Total: ${dailyTotalHHMM.value})**\n${projSummaryStr}\n\n**Task details**\n${tasksListStr}` : '- No actuals') +
+                              `\n\n## Tomorrow's plan\n` + nextPlansStr +
+                              `\n\n## Issues & blockers\n` + (ref.issue ? `${ref.issue}` : '- None') +
+                              `\n\n## Wins & learnings (W)\n` + (ref.w ? `${ref.w}` : '- None') +
+                              `\n\n## Tomorrow's action (T)\n` + (ref.t ? `${ref.t}` : '- None');
+                });
+
+                const openReportModal = () => { reportModal.value.show = true; };
+                const copyReportToClipboard = () => {
+                    navigator.clipboard.writeText(generatedReportText.value).then(() => {
+                        alert('Report copied as Markdown.');
+                        reportModal.value.show = false;
+                    }).catch(err => { alert('Copy failed.'); });
+                };
+
+                const quickStartTaskPrompt = () => {
+                    const title = prompt('Enter a task to start now:', 'Ad hoc task');
+                    if (!title) return;
+
+                    const running = actuals.value.find(a => a.isRunning);
+                    if (running) stopTask(running);
+
+                    actuals.value.push({
+                        id: createTaskId('act'), title: title, start: new Date(), end: null, isRunning: true, targetMinutes: null
+                    });
+                };
+
+                const processOverlappingTasks = (tasksList, getEndTimeFn) => {
+                    if (!tasksList.length) return [];
+
+                    const items = tasksList.map(task => ({
+                        task, startMins: getMinutesFromMidnight(task.start), endMins: getMinutesFromMidnight(getEndTimeFn(task)), col: 0, totalCols: 1
+                    }));
+
+                    items.sort((a, b) => {
+                        if (a.startMins !== b.startMins) return a.startMins - b.startMins;
+                        if (a.endMins !== b.endMins) return b.endMins - a.endMins;
+                        return String(a.task.id || '').localeCompare(String(b.task.id || ''));
+                    });
+
+                    let clusters = [];
+                    items.forEach(item => {
+                        const overlappingClusterIndices = [];
+                        clusters.forEach((cluster, cIndex) => {
+                            const hasOverlap = cluster.some(g => item.startMins < g.endMins && item.endMins > g.startMins);
+                            if (hasOverlap) overlappingClusterIndices.push(cIndex);
+                        });
+
+                        if (overlappingClusterIndices.length === 0) {
+                            clusters.push([item]);
+                            return;
+                        }
+
+                        const primaryCluster = clusters[overlappingClusterIndices[0]];
+                        primaryCluster.push(item);
+
+                        for (let i = overlappingClusterIndices.length - 1; i >= 1; i--) {
+                            const targetCluster = clusters[overlappingClusterIndices[i]];
+                            primaryCluster.push(...targetCluster);
+                            clusters.splice(overlappingClusterIndices[i], 1);
+                        }
+                    });
+
+                    const orderedItems = [];
+                    clusters.forEach(cluster => {
+                        cluster.sort((a, b) => {
+                            if (a.startMins !== b.startMins) return a.startMins - b.startMins;
+                            if (a.endMins !== b.endMins) return b.endMins - a.endMins;
+                            return String(a.task.id || '').localeCompare(String(b.task.id || ''));
+                        });
+
+                        const colEnds = [];
+                        cluster.forEach(item => {
+                            let assignedCol = -1;
+                            for (let c = 0; c < colEnds.length; c++) {
+                                if (colEnds[c] <= item.startMins) { assignedCol = c; break; }
+                            }
+                            if (assignedCol === -1) {
+                                assignedCol = colEnds.length;
+                                colEnds.push(0);
+                            }
+                            item.col = assignedCol;
+                            colEnds[assignedCol] = item.endMins;
+                        });
+
+                        const maxCols = colEnds.length || 1;
+                        cluster.forEach(item => { item.totalCols = maxCols; orderedItems.push(item); });
+                    });
+
+                    orderedItems.sort((a, b) => {
+                        if (a.startMins !== b.startMins) return a.startMins - b.startMins;
+                        if (a.endMins !== b.endMins) return b.endMins - a.endMins;
+                        return String(a.task.id || '').localeCompare(String(b.task.id || ''));
+                    });
+
+                    return orderedItems;
+                };
+
+                const computedDailyPlans = computed(() => processOverlappingTasks(dailyPlans.value, p => p.end));
+                const computedDailyActuals = computed(() => processOverlappingTasks(dailyActuals.value, a => a.isRunning ? now.value : a.end));
+
+                const changeDate = (days) => {
+                    const d = new Date(currentDate.value);
+                    d.setDate(d.getDate() + days);
+                    currentDate.value = getLocalDateString(d);
+                };
+                const setToday = () => { currentDate.value = getLocalDateString(); };
+
+                const getMinutesFromMidnight = (dateObj) => dateObj.getHours() * 60 + dateObj.getMinutes();
+                const formatTime = (dateObj) => `${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+                const formatTimeDisplay = (dateObj) => `${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+                const calcDuration = (start, end) => Math.round((end - start) / 60000);
+
+                const getItemLayoutStyle = (item, customEnd = null) => {
+                    const top = getMinutesFromMidnight(item.task.start);
+                    const endTime = customEnd || item.task.end;
+                    const height = Math.max(10, calcDuration(item.task.start, endTime));
+                    const total = item.totalCols || 1;
+                    const col = item.col || 0;
+                    const widthPercent = 100 / total;
+                    const leftPercent = widthPercent * col;
+                    return { top: `${top}px`, left: `calc(${leftPercent}% + 4px)`, width: `calc(${widthPercent}% - 8px)`, height: `${height}px` };
+                };
+
+                const getGhostLayoutStyle = (item) => {
+                    const top = getMinutesFromMidnight(item.task.start);
+                    const height = item.task.targetMinutes;
+                    const total = item.totalCols || 1;
+                    const col = item.col || 0;
+                    const widthPercent = 100 / total;
+                    const leftPercent = widthPercent * col;
+                    return { top: `${top}px`, left: `calc(${leftPercent}% + 4px)`, width: `calc(${widthPercent}% - 8px)`, height: `${height}px` };
+                };
+
+                let movingTarget = null; let moveStartY = 0; let originalStartMins = 0; let originalDurationMins = 0;
+                const getClientY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+
+                const onMouseDownMove = (e, task, type) => {
+                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'I' || e.target.classList.contains('resize-handle-top') || e.target.classList.contains('resize-handle-bottom')) return;
+                    movingTarget = task; moveStartY = getClientY(e); originalStartMins = getMinutesFromMidnight(task.start);
+                    const endObj = (type === 'actual' && task.isRunning) ? now.value : (task.end || task.start);
+                    originalDurationMins = calcDuration(task.start, endObj);
+                };
+
+                let resizingTarget = null; let targetType = null; let resizeType = null; let resizeStartY = 0; let originalMins = 0; let fixedMins = 0; 
+                const onMouseDownResize = (e, target, type, pos) => {
+                    resizingTarget = target; targetType = type; resizeType = pos; resizeStartY = getClientY(e);
+                    if (pos === 'bottom') {
+                        originalMins = getMinutesFromMidnight(target.end); fixedMins = getMinutesFromMidnight(target.start);
+                    } else {
+                        originalMins = getMinutesFromMidnight(target.start); fixedMins = (type === 'actual' && target.isRunning) ? getMinutesFromMidnight(now.value) : getMinutesFromMidnight(target.end);
+                    }
+                    document.body.style.cursor = 'ns-resize'; 
+                };
+
+                const onMouseMove = (e) => {
+                    if (movingTarget) {
+                        const deltaY = getClientY(e) - moveStartY;
+                        let newStartMins = Math.round((originalStartMins + deltaY) / 15) * 15;
+                        if (newStartMins < 0) newStartMins = 0;
+                        if (newStartMins > 1440 - originalDurationMins) newStartMins = 1440 - originalDurationMins;
+
+                        const targetDateStr = getLocalDateString(movingTarget.start);
+                        const newEndMins = newStartMins + originalDurationMins;
+
+                        movingTarget.start = new Date(`${targetDateStr}T${String(Math.floor(newStartMins/60)).padStart(2,'0')}:${String(newStartMins%60).padStart(2,'0')}:00`);
+                        if (!movingTarget.isRunning && movingTarget.end) {
+                            movingTarget.end = new Date(`${targetDateStr}T${String(Math.floor(newEndMins/60)).padStart(2,'0')}:${String(newEndMins%60).padStart(2,'0')}:00`);
+                        }
+                        return;
+                    }
+                    if (!resizingTarget) return;
+                    const deltaY = getClientY(e) - resizeStartY;
+                    const targetDateStr = getLocalDateString(resizingTarget.start);
+                    if (resizeType === 'bottom') {
+                        let newEndMins = Math.round((originalMins + deltaY) / 15) * 15;
+                        if (newEndMins <= fixedMins + 15) newEndMins = fixedMins + 15;
+                        resizingTarget.end = new Date(`${targetDateStr}T${String(Math.floor(newEndMins/60)).padStart(2,'0')}:${String(newEndMins%60).padStart(2,'0')}:00`);
+                    } else if (resizeType === 'top') {
+                        let newStartMins = Math.round((originalMins + deltaY) / 15) * 15;
+                        const limitMins = (targetType === 'actual' && resizingTarget.isRunning) ? getMinutesFromMidnight(now.value) - 15 : fixedMins - 15;
+                        if (newStartMins >= limitMins) newStartMins = limitMins;
+                        if (newStartMins < 0) newStartMins = 0;
+                        resizingTarget.start = new Date(`${targetDateStr}T${String(Math.floor(newStartMins/60)).padStart(2,'0')}:${String(newStartMins%60).padStart(2,'0')}:00`);
+                    }
+                };
+
+                const onMouseUp = () => {
+                    movingTarget = null;
+                    if (resizingTarget) { resizingTarget = null; targetType = null; resizeType = null; document.body.style.cursor = ''; }
+                };
+
+                const planModal = ref({ show: false, isEdit: false, id: null, form: { title: '', date: currentDate.value, startTime: '09:00', endTime: '10:00' } });
+                const openPlanModal = (plan = null) => {
+                    if (plan) {
+                        planModal.value = { show: true, isEdit: true, id: plan.id, form: { title: plan.title, date: getLocalDateString(plan.start), startTime: formatTime(plan.start), endTime: formatTime(plan.end) } };
+                    } else {
+                        const m = now.value.getMinutes(); const roundM = m < 30 ? '00' : '30'; const h = String(now.value.getHours()).padStart(2, '0');
+                        planModal.value = { show: true, isEdit: false, id: null, form: { title: '', date: currentDate.value, startTime: `${h}:${roundM}`, endTime: `${String(Number(h)+1).padStart(2,'0')}:${roundM}` } };
+                    }
+                };
+
+                const savePlan = () => {
+                    if (!planModal.value.form.title) { alert('Enter a task name.'); return; }
+                    const targetDate = planModal.value.form.date || currentDate.value;
+                    const startIso = new Date(`${targetDate}T${planModal.value.form.startTime}:00`);
+                    const endIso = new Date(`${targetDate}T${planModal.value.form.endTime}:00`);
+
+                    if (planModal.value.isEdit) {
+                        const target = plans.value.find(p => p.id === planModal.value.id);
+                        if (target) { target.title = planModal.value.form.title; target.start = startIso; target.end = endIso; }
+                    } else {
+                        plans.value.push({ id: createTaskId('p'), title: planModal.value.form.title, start: startIso, end: endIso });
+                    }
+                    planModal.value.show = false;
+                };
+
+                const deletePlanById = (id) => { if (confirm('Delete this plan?')) plans.value = plans.value.filter(p => p.id !== id); };
+                const deletePlanModal = () => { deletePlanById(planModal.value.id); planModal.value.show = false; };
+
+                const actualModal = ref({ show: false, isEdit: false, targetId: null, target: null, form: { title: '', date: currentDate.value, startTime: '09:00', endTime: '10:00' } });
+                const openActualModal = (act = null) => {
+                    if (act) {
+                        actualModal.value = { show: true, isEdit: true, targetId: act.id, target: act, form: { title: act.title, date: getLocalDateString(act.start), startTime: formatTime(act.start), endTime: act.end ? formatTime(act.end) : formatTime(now.value) } };
+                    } else {
+                        const m = now.value.getMinutes(); const roundM = m < 30 ? '00' : '30'; const h = String(now.value.getHours()).padStart(2, '0');
+                        actualModal.value = { show: true, isEdit: false, targetId: null, target: null, form: { title: '', date: currentDate.value, startTime: `${h}:${roundM}`, endTime: `${String(Number(h)+1).padStart(2,'0')}:${roundM}` } };
+                    }
+                };
+
+                const saveActual = () => {
+                    if (!actualModal.value.form.title) { alert('Enter a task name.'); return; }
+                    const targetDate = actualModal.value.form.date || currentDate.value;
+                    const startIso = new Date(`${targetDate}T${actualModal.value.form.startTime}:00`);
+                    const endIso = new Date(`${targetDate}T${actualModal.value.form.endTime}:00`);
+
+                    if (actualModal.value.isEdit) {
+                        const act = actuals.value.find(a => a.id === actualModal.value.targetId);
+                        if (!act) return;
+                        act.title = actualModal.value.form.title; act.start = startIso;
+                        if (!act.isRunning) act.end = endIso;
+                    } else {
+                        actuals.value.push({ id: createTaskId('act'), title: actualModal.value.form.title, start: startIso, end: endIso, isRunning: false, targetMinutes: null });
+                    }
+                    actualModal.value.show = false;
+                };
+
+                const deleteActualById = (id) => { if (confirm('Delete this actual?')) actuals.value = actuals.value.filter(a => a.id !== id); };
+                const deleteActualModal = () => { deleteActualById(actualModal.value.targetId); actualModal.value.show = false; };
+
+                const startTask = (plan) => {
+                    const running = actuals.value.find(a => a.isRunning);
+                    if (running) stopTask(running);
+                    actuals.value.push({ id: createTaskId('act'), title: plan.title, start: new Date(), end: null, isRunning: true, targetMinutes: calcDuration(plan.start, plan.end) });
+                };
+
+                const stopTask = (actual) => { actual.isRunning = false; actual.end = new Date(); };
+
+                return {
+                    currentDate, now, computedDailyPlans, computedDailyActuals, currentReflection, isToday, 
+                    planModal, actualModal, reportModal, copyDateModal, dailyProjectSummary, dailyTotalHHMM, filteredAllTimeTaskSummary, taskFilterKeyword, generatedReportText,
+                    formatTime, formatTimeDisplay, calcDuration, formatDurationHHMM, getMinutesFromMidnight, getItemLayoutStyle, getGhostLayoutStyle,
+                    summaryStartDate, summaryEndDate, filteredSummaryTotalHHMM,
+                    getProjectColorStyle, getGhostProjectStyle,
+                    changeDate, setToday, openPlanModal, savePlan, deletePlanById, deletePlanModal,
+                    openActualModal, saveActual, deleteActualById, deleteActualModal,
+                    startTask, stopTask, quickStartTaskPrompt, openReportModal, copyReportToClipboard, exportJson, importJson,
+                    copyPlansFromOffset, copyActualsFromPlan, openCopyDateModal, executeDateCopy, onMouseDownMove, onMouseDownResize, onMouseMove, onMouseUp
+                };
             }
-          }
-          
-          md += `\n**[Detailed Tasks]**\n`;
-          if (d.actuals.length === 0) md += `- No data\n`;
-          d.actuals.forEach(t => {
-            const timeStr = t.isRunning ? `${t.startTime} - Running` : `${t.startTime} - ${t.endTime} (${this.calculateDurationH(t.startTime, t.endTime)})`;
-            md += `- ${t.name} [${timeStr}]\n`;
-          });
-          
-          md += `\n## Issues / Problems / Concerns\n`;
-          md += `${d.issues || 'Not entered'}\n\n`;
-          
-          md += `## Discoveries (W)\n`;
-          md += `${d.discoveries || 'Not entered'}\n\n`;
-          
-          md += `## Next Actions (T)\n`;
-          md += `${d.actions || 'Not entered'}\n`;
-          
-          return md;
-        },
-        reportHtmlPreview() {
-           // Very simple markdown to html for preview (lists and linebreaks)
-           return this.markdownReport
-             .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-             .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-             .replace(/^\*\*\[(.*?)\]\*\*/gim, '<strong>$1</strong>')
-             .replace(/^- (.*$)/gim, '<ul><li>$1</li></ul>')
-             .replace(/<\/ul>\n<ul>/gim, '')
-             .replace(/\n/gim, '<br>');
-        }
-      },
-      methods: {
-        // --- Initialization & Time Setup ---
-        initTime() {
-          this.updateCurrentTime();
-          this.timeIndicatorInterval = setInterval(this.updateCurrentTime, 60000); // Every min
-          
-          // Timer for running task UI update (every second)
-          this.timerInterval = setInterval(() => {
-            if (this.runningTask) {
-              const startMins = timeToMinutes(this.runningTask.startTime);
-              const curMins = timeToMinutes(minutesToTime(this.currentTimeTop));
-              let diff = curMins - startMins;
-              if (diff < 0) diff = 0;
-              this.currentRunningDuration = this.formatMinutesToHHMM(diff);
-            }
-          }, 1000);
-        },
-        updateCurrentTime() {
-          const now = new Date();
-          const mins = now.getHours() * 60 + now.getMinutes();
-          this.currentTimeTop = mins;
-          
-          // If we are looking at today, scroll to current time on initial load
-          if (this.isToday && !this.initialScrolled) {
-             this.scrollToTime(mins);
-             this.initialScrolled = true;
-          }
-        },
-        scrollToTime(mins) {
-          this.$nextTick(() => {
-            const container = this.$refs.timelineScroll;
-            if(container) {
-              // Scroll so current time is roughly in middle of viewport
-              container.scrollTop = Math.max(0, mins - container.clientHeight / 2);
-            }
-          });
-        },
-        formatDateForDisplay(dateStr) {
-          const d = new Date(dateStr);
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          return `${d.getMonth()+1}/${d.getDate()} (${days[d.getDay()]})`;
-        },
-        changeDate(days) {
-          const d = new Date(this.currentDate);
-          d.setDate(d.getDate() + days);
-          
-          const newMonth = d.getMonth();
-          const oldMonth = new Date(this.currentDate).getMonth();
-          
-          this.currentDate = formatDateStr(d);
-          this.loadDataForCurrentDate();
-          
-          // Auto-update summary dates when month changes
-          if (newMonth !== oldMonth) {
-             this.setDefaultSummaryDates();
-          }
-        },
-        setDefaultSummaryDates() {
-          const d = new Date(this.currentDate);
-          const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
-          const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-          this.summaryStartDate = formatDateStr(firstDay);
-          this.summaryEndDate = formatDateStr(lastDay);
-        },
-        
-        // --- Data Persistence ---
-        saveData() {
-          localStorage.setItem('pspCopilotData', JSON.stringify(this.records));
-        },
-        loadData() {
-          const data = localStorage.getItem('pspCopilotData');
-          if (data) {
-            try {
-              this.records = JSON.parse(data);
-            } catch(e) {
-              console.error('Failed to parse local storage data');
-              this.records = {};
-            }
-          }
-          // Seed initial dummy data if brand new
-          if (Object.keys(this.records).length === 0) {
-            this.records[this.todayString] = {
-              plans: [
-                { id: generateId(), name: 'Morning Sync & Emails', startTime: '09:00', endTime: '09:30' },
-                { id: generateId(), name: '[Project A] Draft Proposal', startTime: '09:30', endTime: '11:00' }
-              ],
-              actuals: [], issues: '', discoveries: '', actions: ''
-            };
-            this.saveData();
-          }
-          
-          this.setDefaultSummaryDates();
-        },
-        loadDataForCurrentDate() {
-          if (!this.records[this.todayString]) {
-            this.records[this.todayString] = { plans: [], actuals: [], issues: '', discoveries: '', actions: '' };
-          }
-        },
-        exportData() {
-           const dataStr = JSON.stringify(this.records, null, 2);
-           const blob = new Blob([dataStr], { type: "application/json" });
-           const url = URL.createObjectURL(blob);
-           const a = document.createElement('a');
-           a.href = url;
-           a.download = `psp_copilot_backup_${formatDateStr(new Date())}.json`;
-           a.click();
-           URL.revokeObjectURL(url);
-        },
-        importData(event) {
-           const file = event.target.files[0];
-           if (!file) return;
-           const reader = new FileReader();
-           reader.onload = (e) => {
-             try {
-               const parsed = JSON.parse(e.target.result);
-               if(typeof parsed === 'object') {
-                  this.records = parsed;
-                  this.saveData();
-                  alert('Successfully imported data!');
-                  this.loadDataForCurrentDate();
-               }
-             } catch(err) {
-               alert('Failed to read JSON file. Please check the file format.');
-             }
-             event.target.value = ''; // reset
-           };
-           reader.readAsText(file);
-        },
-
-        // --- Utils ---
-        calculateDurationH(start, end) {
-          if(!start || !end) return '';
-          const m = timeToMinutes(end) - timeToMinutes(start);
-          return this.formatMinutesToHHMM(m);
-        },
-        formatMinutesToHHMM(mins) {
-          if(mins <= 0) return '0:00';
-          const h = Math.floor(mins / 60);
-          const m = Math.floor(mins % 60);
-          return `${h}:${String(m).padStart(2, '0')}`;
-        },
-        snapToGrid(y) {
-          return Math.round(y / 15) * 15; // 15px = 15mins
-        },
-
-        // --- Modals & Forms ---
-        handleLaneDblClick(e, type) {
-          // Double click on empty space to add task at that time
-          if(e.target.id === `${type}-lane` || e.target.classList.contains('timeline-container')) {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const y = e.clientY - rect.top;
-            const snappedY = this.snapToGrid(y);
-            const startTime = minutesToTime(snappedY);
-            const endTime = minutesToTime(snappedY + 60); // Default 1 hr
-            
-            this.taskForm = { id: '', name: '', startTime, endTime, date: this.currentDate, isRunning: false };
-            this.editingTask = null;
-            if(type === 'plan') {
-                this.showPlanModal = true;
-                this.$nextTick(() => this.$refs.planNameInput?.focus());
-            } else {
-                this.showActualModal = true;
-                this.$nextTick(() => this.$refs.actualNameInput?.focus());
-            }
-          }
-        },
-        openPlanModal(task = null) {
-          if(task) {
-            this.editingTask = task;
-            this.taskForm = { ...task, date: this.currentDate };
-          } else {
-            this.editingTask = null;
-            this.taskForm = { id: '', name: '', startTime: '09:00', endTime: '10:00', date: this.currentDate };
-          }
-          this.showPlanModal = true;
-          this.$nextTick(() => this.$refs.planNameInput?.focus());
-        },
-        openActualModal(task = null) {
-          if(task) {
-            this.editingTask = task;
-            this.taskForm = { ...task, date: this.currentDate };
-          } else {
-            this.editingTask = null;
-            this.taskForm = { id: '', name: '', startTime: '09:00', endTime: '10:00', date: this.currentDate, isRunning: false };
-          }
-          this.showActualModal = true;
-          this.$nextTick(() => this.$refs.actualNameInput?.focus());
-        },
-        
-        savePlanTask() {
-          this.saveTaskGeneral('plan');
-          this.showPlanModal = false;
-        },
-        saveActualTask() {
-          // If starting a running task manually, stop others
-          if(this.taskForm.isRunning) {
-             this.todayRecord.actuals.forEach(t => t.isRunning = false);
-             this.taskForm.endTime = ''; // Clear end time if running
-          }
-          this.saveTaskGeneral('actual');
-          this.showActualModal = false;
-        },
-        saveTaskGeneral(type) {
-          const list = type === 'plan' ? this.todayRecord.plans : this.todayRecord.actuals;
-          
-          if(this.taskForm.date !== this.currentDate) {
-             // Task moved to another date
-             if (!this.records[this.taskForm.date]) {
-                this.records[this.taskForm.date] = { plans: [], actuals: [], issues: '', discoveries: '', actions: '' };
-             }
-             const targetList = type === 'plan' ? this.records[this.taskForm.date].plans : this.records[this.taskForm.date].actuals;
-             
-             if(this.editingTask) {
-                // Remove from current
-                const idx = list.findIndex(t => t.id === this.editingTask.id);
-                if(idx > -1) list.splice(idx, 1);
-             }
-             // Add to new
-             targetList.push({ ...this.taskForm, id: this.editingTask?.id || generateId() });
-             
-          } else {
-            if(this.editingTask) {
-              const idx = list.findIndex(t => t.id === this.editingTask.id);
-              if(idx > -1) {
-                list[idx] = { ...this.taskForm };
-              }
-            } else {
-              list.push({ ...this.taskForm, id: generateId() });
-            }
-          }
-          this.saveData();
-        },
-        deleteTask(type, id) {
-          if(confirm(`Delete this ${type}?`)) {
-            const list = type === 'plan' ? this.todayRecord.plans : this.todayRecord.actuals;
-            const idx = list.findIndex(t => t.id === id);
-            if(idx > -1) list.splice(idx, 1);
-            this.saveData();
-          }
-        },
-
-        // --- Task Execution Actions ---
-        startNewTask() {
-           const name = prompt('Enter task name to start now:', 'Ad-hoc task');
-           if(!name) return;
-           this.startTaskLogic(name, minutesToTime(this.currentTimeTop), null);
-        },
-        startTaskFromPlan(planTask) {
-           this.startTaskLogic(planTask.name, minutesToTime(this.currentTimeTop), planTask.endTime);
-        },
-        startTaskLogic(name, startTime, estimatedEndTime) {
-           // Stop current running task if any
-           if(this.runningTask) this.stopTask(this.runningTask.id);
-           
-           this.todayRecord.actuals.push({
-             id: generateId(),
-             name: name,
-             startTime: startTime,
-             endTime: estimatedEndTime, // Keeping estimate for ghost display
-             isRunning: true
-           });
-           this.saveData();
-           this.scrollToTime(timeToMinutes(startTime));
-        },
-        stopTask(id) {
-           const task = this.todayRecord.actuals.find(t => t.id === id);
-           if(task) {
-              task.isRunning = false;
-              task.endTime = minutesToTime(this.currentTimeTop);
-              this.saveData();
-           }
-        },
-        isTaskRunning(taskId) {
-           // Check if there is an actual task with same name running
-           // This is a naive check. A better way is to link plan ID to actual, but name match is simpler.
-           const planTask = this.todayRecord.plans.find(t => t.id === taskId);
-           if(!planTask) return false;
-           return this.todayRecord.actuals.some(t => t.name === planTask.name && t.isRunning);
-        },
-
-        // --- Copy Functions ---
-        reflectPlanToActual() {
-           if(this.todayRecord.plans.length === 0) {
-              alert('No plan data found for today.');
-              return;
-           }
-           if(confirm(`Copy today's plans (${this.todayRecord.plans.length} items) to actuals?`)) {
-              this.todayRecord.plans.forEach(p => {
-                 this.todayRecord.actuals.push({
-                    id: generateId(),
-                    name: p.name,
-                    startTime: p.startTime,
-                    endTime: p.endTime,
-                    isRunning: false
-                 });
-              });
-              this.saveData();
-              alert('Successfully reflected today\'s plan to actuals!');
-           }
-        },
-        copyYesterday(type) {
-           const d = new Date(this.currentDate);
-           d.setDate(d.getDate() - 1);
-           this.executeCopy(formatDateStr(d), type);
-        },
-        copyLastWeek(type) {
-           const d = new Date(this.currentDate);
-           d.setDate(d.getDate() - 7);
-           this.executeCopy(formatDateStr(d), type);
-        },
-        openCopyDateModal(type) {
-           this.copyTargetType = type;
-           const d = new Date(this.currentDate);
-           d.setDate(d.getDate() - 1);
-           this.copySourceDate = formatDateStr(d);
-           this.showCopyDateModal = true;
-        },
-        executeCopyByDate() {
-           if(this.copySourceDate) {
-              this.executeCopy(this.copySourceDate, this.copyTargetType);
-              this.showCopyDateModal = false;
-           }
-        },
-        executeCopy(sourceDateStr, type) {
-           const sourceRecord = this.records[sourceDateStr];
-           const sourceList = sourceRecord ? (type === 'plan' ? sourceRecord.plans : sourceRecord.actuals) : [];
-           
-           if(sourceList.length === 0) {
-              alert(`No ${type} data found for ${sourceDateStr}.`);
-              return;
-           }
-           
-           if(confirm(`Copy ${type}s (${sourceList.length} items) from ${sourceDateStr} to ${this.currentDate}?`)) {
-              const targetList = type === 'plan' ? this.todayRecord.plans : this.todayRecord.actuals;
-              sourceList.forEach(item => {
-                 targetList.push({
-                    id: generateId(),
-                    name: item.name,
-                    startTime: item.startTime,
-                    endTime: item.endTime,
-                    isRunning: false // Never copy running state
-                 });
-              });
-              this.saveData();
-              alert('Successfully copied!');
-           }
-        },
-
-        // --- Report Modal ---
-        openReportModal() {
-           this.showReportModal = true;
-        },
-        copyReportToClipboard() {
-           navigator.clipboard.writeText(this.markdownReport).then(() => {
-              alert('Copied daily report (Markdown) to clipboard!');
-              this.showReportModal = false;
-           }).catch(err => {
-              console.error('Could not copy text: ', err);
-              alert('Failed to copy.');
-           });
-        },
-
-        // --- interact.js Drag & Resize Setup ---
-        setupInteractJS() {
-          const self = this;
-          
-          // Helper to update task time based on Y position/height
-          const updateTaskFromDOM = (el) => {
-             const id = el.getAttribute('data-id');
-             const type = el.getAttribute('data-type');
-             const top = parseFloat(el.style.top);
-             const height = parseFloat(el.style.height);
-             
-             const newStartMins = top;
-             const newEndMins = top + height;
-             
-             const list = type === 'plan' ? self.todayRecord.plans : self.todayRecord.actuals;
-             const task = list.find(t => t.id === id);
-             
-             if(task) {
-                task.startTime = minutesToTime(newStartMins);
-                if(!task.isRunning) {
-                   task.endTime = minutesToTime(newEndMins);
-                }
-                self.saveData();
-             }
-          };
-
-          interact('.task-block')
-            .draggable({
-              inertia: false,
-              modifiers: [
-                interact.modifiers.restrictRect({
-                  restriction: 'parent',
-                  endOnly: false
-                }),
-                interact.modifiers.snap({
-                  targets: [
-                    interact.createSnapGrid({ x: 1, y: 15 }) // Snap to 15 mins
-                  ],
-                  range: Infinity,
-                  relativePoints: [ { x: 0, y: 0 } ]
-                })
-              ],
-              autoScroll: true,
-              listeners: {
-                start(event) {
-                  // Don't drag if it's a running task
-                  if(event.target.classList.contains('running-task')) return false;
-                },
-                move(event) {
-                  if(event.target.classList.contains('running-task')) return;
-                  const target = event.target;
-                  // Only allow vertical movement
-                  const y = (parseFloat(target.style.top) || 0) + event.dy;
-                  target.style.top = `${Math.max(0, y)}px`;
-                },
-                end(event) {
-                   if(event.target.classList.contains('running-task')) return;
-                   updateTaskFromDOM(event.target);
-                }
-              }
-            })
-            .resizable({
-              edges: { left: false, right: false, bottom: '.resize-handle-bottom', top: '.resize-handle-top' },
-              modifiers: [
-                interact.modifiers.restrictEdges({
-                  outer: 'parent'
-                }),
-                interact.modifiers.restrictSize({
-                  min: { height: 15 } // Min 15 mins
-                }),
-                interact.modifiers.snapSize({
-                  targets: [
-                    interact.createSnapGrid({ x: 1, y: 15 })
-                  ],
-                })
-              ],
-              listeners: {
-                move(event) {
-                  const target = event.target;
-                  if(target.classList.contains('running-task')) return; // Can't resize running task manually
-
-                  let y = parseFloat(target.style.top) || 0;
-                  
-                  target.style.height = `${event.rect.height}px`;
-                  
-                  // if resizing from top, adjust top position
-                  if(event.edges.top) {
-                     y += event.dy;
-                     target.style.top = `${y}px`;
-                  }
-                },
-                end(event) {
-                   if(event.target.classList.contains('running-task')) return;
-                   updateTaskFromDOM(event.target);
-                }
-              }
-            });
-        }
-      },
-      mounted() {
-        this.loadData();
-        this.initTime();
-        this.$nextTick(() => {
-           this.setupInteractJS();
-        });
-      },
-      beforeUnmount() {
-        if(this.timerInterval) clearInterval(this.timerInterval);
-        if(this.timeIndicatorInterval) clearInterval(this.timeIndicatorInterval);
-      },
-      watch: {
-         // Auto-save reflections when changed
-         'todayRecord.issues'() { this.saveData(); },
-         'todayRecord.discoveries'() { this.saveData(); },
-         'todayRecord.actions'() { this.saveData(); }
-      }
-    }).mount('#app');
-  </script>
+        }).mount('#app');
+    </script>
 </body>
 </html>
