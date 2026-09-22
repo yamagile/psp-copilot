@@ -359,7 +359,7 @@
                     <div v-else class="h-32 min-h-[60px] resize-y overflow-y-auto space-y-1 pr-1 pb-1">
                         <div v-for="taskSummary in filteredAllTimeTaskSummary" :key="taskSummary.name" class="flex justify-between items-center text-xs bg-indigo-50/50 px-2.5 py-1 rounded border border-indigo-100/60">
                             <span class="font-medium text-indigo-900 truncate max-w-[180px]" :title="taskSummary.name">{{ taskSummary.name }}</span>
-                            <span class="font-mono font-bold text-indigo-700 select-all cursor-text">{{ taskSummary.hhmm }} <span class="text-[10px] font-normal text-slate-500">({{ taskSummary.count }})</span></span>
+                            <span class="font-mono font-bold text-indigo-700 select-all cursor-text">{{ taskSummary.hhmm }} <span class="text-[10px] font-normal text-slate-500">({{ taskSummary.count }}回)</span></span>
                         </div>
                     </div>
                 </div>
@@ -530,7 +530,7 @@
                 watch(currentDate, (newVal, oldVal) => {
                     const newD = new Date(newVal);
                     const oldD = new Date(oldVal);
-                    // Update only when the year or month changes
+                    // 年か月が変わったタイミングのみ上書き処理を実行
                     if (newD.getFullYear() !== oldD.getFullYear() || newD.getMonth() !== oldD.getMonth()) {
                         summaryStartDate.value = getFirstDayOfMonth(newVal);
                         summaryEndDate.value = getLastDayOfMonth(newVal);
@@ -545,7 +545,7 @@
                 };
 
                 const extractProjectName = (title) => {
-                    if (!title) return 'Other';
+                    if (!title) return 'その他';
                     const bracketMatch = title.match(/\[(.*?)\]/);
                     if (bracketMatch && bracketMatch[1]) {
                         return bracketMatch[1].trim();
@@ -557,7 +557,7 @@
                     return title.trim();
                 };
 
-                // --- Project color coding ---
+                // --- プロジェクト別のカラーコーディング処理 ---
                 const getProjectColorStyle = (title, type) => {
                     const projName = extractProjectName(title);
                     let hash = 0;
@@ -566,8 +566,8 @@
                     }
                     const colorIndex = Math.abs(hash) % 16;
                     
-                    // 16-color palette
-                    // Plans use lighter shades; actuals use darker shades
+                    // 16色のパレット
+                    // plan(計画)は薄め、actual(実績)は少し濃いめに設定
                     const palettes = [
                         { plan:{bg:'#eff6ff',border:'#bfdbfe',text:'#1e3a8a'}, actual:{bg:'#bfdbfe',border:'#3b82f6',text:'#1e3a8a'} },
                         { plan:{bg:'#ecfdf5',border:'#a7f3d0',text:'#064e3b'}, actual:{bg:'#a7f3d0',border:'#10b981',text:'#064e3b'} },
@@ -610,7 +610,7 @@
                 };
 
                 const loadLocalStorage = (key, fallback) => {
-                    // Migrate data from the old Time Copilot
+                    // 古いTime Copilotからのデータ移行処理
                     const oldKeys = {
                         'psp_plans': 'tc_plans',
                         'psp_actuals': 'tc_actuals',
@@ -622,7 +622,7 @@
                     if (!saved && oldKeys[key]) {
                         saved = localStorage.getItem(oldKeys[key]);
                         if (saved) {
-                            localStorage.setItem(key, saved); // Save old data under the new key
+                            localStorage.setItem(key, saved); // 古いデータを新しいキー名で保存
                         }
                     }
 
@@ -650,8 +650,8 @@
                 };
 
                 const plans = ref(loadLocalStorage('psp_plans', [
-                    { id: 'p1', title: 'Standup & email', start: new Date(`${currentDate.value}T09:00:00`), end: new Date(`${currentDate.value}T09:15:00`) },
-                    { id: 'p2', title: '[Project A] Proposal draft', start: new Date(`${currentDate.value}T09:15:00`), end: new Date(`${currentDate.value}T11:30:00`) },
+                    { id: 'p1', title: '朝会・メールチェック', start: new Date(`${currentDate.value}T09:00:00`), end: new Date(`${currentDate.value}T09:15:00`) },
+                    { id: 'p2', title: '[Aプロジェクト] 企画書ドラフト', start: new Date(`${currentDate.value}T09:15:00`), end: new Date(`${currentDate.value}T11:30:00`) },
                 ]));
 
                 const actuals = ref(loadLocalStorage('psp_actuals', []));
@@ -661,7 +661,7 @@
                 watch(actuals, (val) => localStorage.setItem('psp_actuals', JSON.stringify(val)), { deep: true });
                 watch(reflections, (val) => localStorage.setItem('psp_reflections', JSON.stringify(val)), { deep: true });
 
-                // --- Copy plans and actuals (offset or date) ---
+                // --- 計画・実績のコピー機能（オフセット or 日付指定） ---
                 const copyPlansFromOffset = (offsetDays) => {
                     const targetDate = new Date(currentDate.value);
                     targetDate.setDate(targetDate.getDate() + offsetDays);
@@ -671,10 +671,10 @@
                 const copyActualsFromPlan = () => {
                     const sourcePlans = plans.value.filter(p => matchesDate(p.start, currentDate.value));
                     if (sourcePlans.length === 0) {
-                        alert('No plans found for today.');
+                        alert('当日の計画データが見つかりませんでした。');
                         return;
                     }
-                    if (confirm(`Copy ${sourcePlans.length} plans to actuals?`)) {
+                    if (confirm(`本日の計画（${sourcePlans.length}件）を実績（Actual）としてコピーして登録しますか？`)) {
                         sourcePlans.forEach(src => {
                             const startH = String(src.start.getHours()).padStart(2, '0');
                             const startM = String(src.start.getMinutes()).padStart(2, '0');
@@ -690,7 +690,7 @@
                                 targetMinutes: null
                             });
                         });
-                        alert("Today's plans copied to actuals.");
+                        alert('本日の計画を実績に反映しました！');
                     }
                 };
 
@@ -713,12 +713,12 @@
                     const sourceItems = targetList.value.filter(item => matchesDate(item.start, srcDateStr));
 
                     if (sourceItems.length === 0) {
-                        alert(`No ${type === 'plan' ? 'plans' : 'actuals'} found for ${srcDateStr}.`);
+                        alert(`${srcDateStr} の${type === 'plan' ? '計画' : '実績'}データが見つかりませんでした。`);
                         return;
                     }
 
-                    const typeName = type === 'plan' ? 'plans' : 'actuals';
-                    if (confirm(`Copy ${sourceItems.length} ${typeName} from ${srcDateStr} to ${currentDate.value}?`)) {
+                    const typeName = type === 'plan' ? '計画' : '実績';
+                    if (confirm(`${srcDateStr} の${typeName}（${sourceItems.length}件）を ${currentDate.value} にコピーして追加しますか？`)) {
                         sourceItems.forEach(src => {
                             const startH = String(src.start.getHours()).padStart(2, '0');
                             const startM = String(src.start.getMinutes()).padStart(2, '0');
@@ -736,7 +736,7 @@
                                 ...(type === 'actual' ? { isRunning: false, targetMinutes: null } : {})
                             });
                         });
-                        alert(`${typeName} copied.`);
+                        alert(`${typeName}をコピーしました！`);
                     }
                 };
 
@@ -761,9 +761,9 @@
                             if (json.plans) plans.value = json.plans.map(p => ({ ...p, start: new Date(p.start), end: p.end ? new Date(p.end) : null }));
                             if (json.actuals) actuals.value = json.actuals.map(a => ({ ...a, start: new Date(a.start), end: a.end ? new Date(a.end) : null }));
                             if (json.reflections) reflections.value = json.reflections;
-                            alert('Data imported.');
+                            alert('データを正常に読み込みました！');
                         } catch (err) {
-                            alert('Import failed. Check the JSON file.');
+                            alert('JSONファイルの読み込みに失敗しました。ファイル形式を確認してください。');
                         }
                         e.target.value = '';
                     };
@@ -826,7 +826,7 @@
                     actuals.value.forEach(act => {
                         const actDateStr = getLocalDateString(act.start);
                         
-                        // Skip tasks outside the selected period
+                        // 期間外のタスクはスキップ
                         if (startStr && actDateStr < startStr) return;
                         if (endStr && actDateStr > endStr) return;
 
@@ -868,7 +868,7 @@
                     const projSummaryStr = dailyProjectSummary.value.map(p => `- **${p.name}**: ${p.hhmm}`).join('\n');
                     const tasksListStr = dailyActuals.value.map(a => {
                         const endObj = a.isRunning ? now.value : (a.end || a.start);
-                        return `- ${formatTime(a.start)}-${a.isRunning ? 'Running' : formatTime(a.end)} [${formatDurationHHMM(calcDuration(a.start, endObj))}] ${a.title}`;
+                        return `- ${formatTime(a.start)}〜${a.isRunning ? '進行中' : formatTime(a.end)} [${formatDurationHHMM(calcDuration(a.start, endObj))}] ${a.title}`;
                     }).join('\n');
 
                     const nextDateObj = new Date(currentDate.value);
@@ -877,28 +877,28 @@
                     const nextPlans = plans.value.filter(p => matchesDate(p.start, nextDateStr));
                     const nextPlansStr = nextPlans.length > 0 
                         ? nextPlans.map(p => `- ${formatTime(p.start)}〜${formatTime(p.end)} ${p.title}`).join('\n')
-                        : '- None';
+                        : '- （未登録）';
                     const ref = currentReflection.value;
 
-                          return `# Daily Report (${dateStr})\n` +
-                              `\n## Today's work (Actuals)\n` +
-                              (projSummaryStr ? `**Project totals (Total: ${dailyTotalHHMM.value})**\n${projSummaryStr}\n\n**Task details**\n${tasksListStr}` : '- No actuals') +
-                              `\n\n## Tomorrow's plan\n` + nextPlansStr +
-                              `\n\n## Issues & blockers\n` + (ref.issue ? `${ref.issue}` : '- None') +
-                              `\n\n## Wins & learnings (W)\n` + (ref.w ? `${ref.w}` : '- None') +
-                              `\n\n## Tomorrow's action (T)\n` + (ref.t ? `${ref.t}` : '- None');
+                    return `# 業務日報 (${dateStr})\n` +
+                           `\n## 今日やったこと（実績）\n` +
+                           (projSummaryStr ? `**【プロジェクト別集計 (合計: ${dailyTotalHHMM.value})】**\n${projSummaryStr}\n\n**【詳細タスク】**\n${tasksListStr}` : '- （本日の実績なし）') +
+                           `\n\n## 明日やること（予定）\n` + nextPlansStr +
+                           `\n\n## 気になること・問題・課題\n` + (ref.issue ? `${ref.issue}` : '- なし') +
+                           `\n\n## 本日の気づき (W)\n` + (ref.w ? `${ref.w}` : '- なし') +
+                           `\n\n## 明日のアクション (T)\n` + (ref.t ? `${ref.t}` : '- なし');
                 });
 
                 const openReportModal = () => { reportModal.value.show = true; };
                 const copyReportToClipboard = () => {
                     navigator.clipboard.writeText(generatedReportText.value).then(() => {
-                        alert('Report copied as Markdown.');
+                        alert('日報（Markdown）をクリップボードにコピーしました！');
                         reportModal.value.show = false;
-                    }).catch(err => { alert('Copy failed.'); });
+                    }).catch(err => { alert('コピーに失敗しました'); });
                 };
 
                 const quickStartTaskPrompt = () => {
-                    const title = prompt('Enter a task to start now:', 'Ad hoc task');
+                    const title = prompt('今開始するタスク名を入力してください:', '突発タスク');
                     if (!title) return;
 
                     const running = actuals.value.find(a => a.isRunning);
@@ -1085,7 +1085,7 @@
                 };
 
                 const savePlan = () => {
-                    if (!planModal.value.form.title) { alert('Enter a task name.'); return; }
+                    if (!planModal.value.form.title) { alert('タスク名を入力してください'); return; }
                     const targetDate = planModal.value.form.date || currentDate.value;
                     const startIso = new Date(`${targetDate}T${planModal.value.form.startTime}:00`);
                     const endIso = new Date(`${targetDate}T${planModal.value.form.endTime}:00`);
@@ -1099,7 +1099,7 @@
                     planModal.value.show = false;
                 };
 
-                const deletePlanById = (id) => { if (confirm('Delete this plan?')) plans.value = plans.value.filter(p => p.id !== id); };
+                const deletePlanById = (id) => { if (confirm('この計画を削除しますか？')) plans.value = plans.value.filter(p => p.id !== id); };
                 const deletePlanModal = () => { deletePlanById(planModal.value.id); planModal.value.show = false; };
 
                 const actualModal = ref({ show: false, isEdit: false, targetId: null, target: null, form: { title: '', date: currentDate.value, startTime: '09:00', endTime: '10:00' } });
@@ -1113,7 +1113,7 @@
                 };
 
                 const saveActual = () => {
-                    if (!actualModal.value.form.title) { alert('Enter a task name.'); return; }
+                    if (!actualModal.value.form.title) { alert('タスク名を入力してください'); return; }
                     const targetDate = actualModal.value.form.date || currentDate.value;
                     const startIso = new Date(`${targetDate}T${actualModal.value.form.startTime}:00`);
                     const endIso = new Date(`${targetDate}T${actualModal.value.form.endTime}:00`);
@@ -1129,7 +1129,7 @@
                     actualModal.value.show = false;
                 };
 
-                const deleteActualById = (id) => { if (confirm('Delete this actual?')) actuals.value = actuals.value.filter(a => a.id !== id); };
+                const deleteActualById = (id) => { if (confirm('この実績を削除しますか？')) actuals.value = actuals.value.filter(a => a.id !== id); };
                 const deleteActualModal = () => { deleteActualById(actualModal.value.targetId); actualModal.value.show = false; };
 
                 const startTask = (plan) => {
