@@ -1,58 +1,77 @@
 # ⏱️ PSP Copilot
 
-**Focus on execution.**
-A single-file web time management tool designed to supercharge your daily time management, effort tracking, and daily report generation.
-
-(Based on the PSP (Personal Software Process) philosophy, it supports continuous improvement of your plans and actuals).
-
-## ✨ Features
-
-*   **Visual Timeline Management:** Arrange "Plan" and "Actual" side-by-side to visually grasp the gap between what you intended and what actually happened.
-*   **Automatic Color Coding by Project:** Simply prefix task names like `[Project A]` to automatically group them by color. Plans are displayed in pastel tones, while actuals are vivid—making comparison intuitive.
-*   **Intuitive Drag & Drop:** Move blocks by dragging their center, or resize their duration by pulling the top/bottom edges (snaps smoothly to 15-minute intervals).
-*   **Fully Responsive (Mobile/Tablet Optimized):** Designed to work comfortably even on smartphones. Touch operations like dragging and resizing are fully supported.
-*   **Smart Copy & Past Data Reuse:** Easily copy plans/actuals from yesterday, last week, or any specific date. The "Sync" button instantly copies today's plans directly to your actuals.
-*   **Real-time Tracking:** Start and stop tasks with a single click. A ghost block shows the estimated duration while the task is running.
-*   **Project & Task Aggregation:** Automatically sums up your daily actual hours by project. Also features an "All-Time Task Summary" to filter and search historical task hours across any date range.
-*   **Auto-generate Markdown Daily Reports:** With a single click, generate and copy a structured daily report (Markdown) including project summaries, detailed task logs, Issues, Discoveries (W), and Next Actions (T).
-
-## 🚀 How to Use
-
-You can use **PSP Copilot** right away via web browser or by downloading it locally. No backend server or installation required.
-
-### Option 1: Use Online (Recommended & Easiest)
-Simply access the GitHub Pages link below to start using it immediately in your browser:
-👉 **[Open PSP Copilot Online](https://yamagile.github.io/psp-copilot/psp-copilot.html)**
-
-### Option 2: Download & Use Locally / Cloud Storage
-If you prefer to keep your data locally or sync it across your devices:
-1. Download `psp-copilot.html` from this repository.
-2. Double-click the file to open it in your modern browser (Chrome, Edge, Safari, Firefox, etc.).
-3. **To sync across devices (Optional):** Save the downloaded file in a cloud storage folder (like Google Drive or Dropbox) to easily open and use it from your smartphone or tablet.
-
-## 🔒 Security & Privacy
-
-*   **Offline Operation:** All entered data is saved exclusively inside your browser's `localStorage`. No data is sent to external servers.
-*   **Data Backup:** Use the "Export" button in the top right to download all your data as a JSON file. Use the "Import" button to restore or transfer your data to another browser/device.
-
-## 🛠️ Technology Stack
-
-*   **Framework:** Vue.js 3 (via CDN)
-*   **Styling:** Tailwind CSS (via CDN)
-*   **Icons:** Phosphor Icons
-*   **Interactions:** interact.js (Drag & Drop / Resize)
-*   **Data Storage:** Browser `localStorage` (JSON format)
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+> **Focus on execution.**  
+> 日々のタイムマネジメント・工数管理・日報作成を爆速化するための、シングルファイル型Webタイムマネジメントツールです。（PSP：Personal Software Processの理念に基づき、計画と実績の継続的改善をサポートします）
 
 ---
 
-## 💖 Support
+## 🌟 特徴・主な機能
 
-If you find this project useful and would like to support its development, consider sponsoring me!
+- **視覚的なタイムライン管理**: 計画（Plan）と実績（Actual）を左右のレーンで並べて視覚的に比較。
+- **🎨 プロジェクトごとの自動カラーコーディング**:
+  - タスク名（`[プロジェクト名]`など）を自動判別し、パレットから色を自動割り当て。
+  - **計画タスクは薄い色**、**実績タスクは同系色の濃い色**で表示され、計画と実績の対応関係が直感的にわかります。
+- **直感的なドラッグ＆ドロップ操作**: 
+  - ブロックの中央ドラッグで**時間全体のスライド移動**
+  - 上端・下端のドラッグで**時間・工数のリサイズ**（15分単位の**スナップフィット**対応）
+- **📱 完全レスポンシブ対応（スマホ・タブレット最適化）**:
+  - PCだけでなく、スマートフォンからも快適に利用可能。画面サイズに合わせてUIが自動的に最適化（コンパクトなヘッダーやボタン配置など）されます。
+  - モバイル特有の**タッチ操作に完全対応**。指先での直感的なスワイプによる移動や伸縮もスナップフィットでスムーズに行えます。
+- **スマートなコピー＆過去データ流用**:
+  - 計画・実績ともに「前日」「先週同曜日」または **「任意の日付指定」** からワンクリックでコピー可能。
+  - **「計画反映」** ボタンを押すだけで、当日の計画を実績に一発でコピーしてタイマー押し忘れ時の工数入力を秒速化。
+- **リアルタイム計測**: 
+  - ワンクリックでタスクの開始・停止が行えるストップウォッチ機能。
+  - 計測中のみ、元の見積もり時間（ゴースト）が点線で表示され、予定に対して今どれくらい進んでいるかが一目で分かります。
+- **プロジェクト別＆タスク別集計**: 
+  - 本日のプロジェクト別工数を自動集計（`HH:MM` 形式、そのままコピー可能）。
+  - 全期間のタスク別累計工数と実施回数を**キーワードフィルター**で瞬時に絞り込み・検索。
+- **Markdown形式の日報自動生成**:
+  - 「課題」「気づき(W)」「アクション(T)」の振り返りと、プロジェクト別集計・詳細タスクを綺麗にMarkdown形式でプレビュー＆ワンクリックコピー。
+
+---
+
+## 🚀 使い方
+
+1. `psp_copilot.html` というファイル名でコードを保存します。
+2. お使いのWebブラウザ（Chrome, Edge, Safariなど）でそのファイルを開くだけで、すぐに利用開始できます（サーバー等の構築は不要です）。
+
+---
+
+## 🔒 セキュリティとプライバシーについて
+
+PSP Copilotは、ユーザーのプライバシーとデータセキュリティを最優先に考えて設計されています。
+
+- **外部へのデータ送信なし**: 
+  - 本ツールに入力されたタスク名、工数、振り返り（W/T/課題）などのすべてのデータは、お使いのブラウザ内（`localStorage`）にのみ保存されます。
+  - 外部のサーバーやクラウド等へデータが送信されることは一切ありません。
+- **安心のデータ管理・バックアップ**: 
+  - データは完全にローカルで管理されるため、機密性の高い業務内容やタスク名であっても安心してご入力いただけます。
+  - バックアップが必要な場合は、いつでもJSON形式で手元にファイルとしてエクスポート（書き出し）し、安全に管理・復元することが可能です。
+
+---
+
+## 🛠️ 技術スタックと選定理由
+
+- **Frontend: Vue.js 3 (CDN)**
+  - **選定理由**: ビルドステップを不要にし、HTMLファイル1枚（シングルファイル）で完全に完結させるため。ブラウザで開くだけで即座に動作します。
+- **Styling: Tailwind CSS**
+  - **選定理由**: CSSファイルを別途用意する手間を省き、洗練されたUIを構築するため。
+- **Storage: Browser localStorage & JSON**
+  - **選定理由**: 外部データベースを一切不要にし、再読み込みしてもデータが消えない永続性を確保するため。クラウドに依存しない高いデータ所有権・可搬性を実現しています。
+
+---
+
+## 📋 ライセンス
+
+このプロジェクトは**MITライセンス**で提供されています。詳細は[LICENSE](LICENSE)ファイルを見てください。
+
+---
+
+## 💖 サポート
+
+このプロジェクトが役に立ったと思ったら、開発をサポートしてくれると嬉しいです！
 
 * [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%F0%9F%92%96-ea4aaa?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/yamagile)
 
-Thank you for your support! 🙏
+サポートありがとうございます！🙏
