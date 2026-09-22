@@ -18,12 +18,17 @@ A single-file web time management tool designed to supercharge your daily time m
 
 ## 🚀 How to Use
 
-No backend server or installation required.
-Just save the HTML file locally and double-click it.
+You can use **PSP Copilot** right away via web browser or by downloading it locally. No backend server or installation required.
 
-1.  Download `psp_copilot.html`.
-2.  Double-click the file to open it in your modern browser (Chrome, Edge, Safari, Firefox, etc.).
-3.  **To sync across devices (Optional):** Save the file in a cloud storage folder (like Google Drive or Dropbox) to easily open and use it from your smartphone or tablet.
+### Option 1: Use Online (Recommended & Easiest)
+Simply access the GitHub Pages link below to start using it immediately in your browser:
+👉 **[Open PSP Copilot Online](https://yamagile.github.io/psp-copilot/psp-copilot.html)**
+
+### Option 2: Download & Use Locally / Cloud Storage
+If you prefer to keep your data locally or sync it across your devices:
+1. Download `psp-copilot.html` from this repository.
+2. Double-click the file to open it in your modern browser (Chrome, Edge, Safari, Firefox, etc.).
+3. **To sync across devices (Optional):** Save the downloaded file in a cloud storage folder (like Google Drive or Dropbox) to easily open and use it from your smartphone or tablet.
 
 ## 🔒 Security & Privacy
 
