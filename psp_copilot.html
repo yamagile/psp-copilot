@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>PSP Copilot</title>
+  
+  <!-- Vue 3 & Tailwind CSS -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- interact.js (for Drag & Drop/Resize) -->
+  <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+
+  <style>
+    /* Custom Scrollbar for a cleaner look */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow-x: hidden;}
+    [v-cloak] { display: none !important; }
+
+    /* Timeline Base Setup */
+    .timeline-container {
+      position: relative;
+      height: 1440px; /* 24 hours * 60px/hour */
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 14px,
+        #f1f5f9 14px,
+        #f1f5f9 15px,
+        transparent 15px,
+        transparent 29px,
+        #e2e8f0 29px,
+        #e2e8f0 30px
+      );
+      background-size: 100% 60px; /* 1 Hour = 60px, 15 Mins = 15px */
+    }
+    
+    /* Current Time Line Indicator */
+    .current-time-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background-color: #ef4444;
+      z-index: 30;
+      pointer-events: none;
+    }
+    .current-time-line::before {
+      content: '';
+      position: absolute;
+      left: 0; top: -4px;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background-color: #ef4444;
+    }
+
+    /* Task Blocks */
+    .task-block {
+      position: absolute;
+      left: 4px; right: 4px;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 0.75rem;
+      line-height: 1.1;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: box-shadow 0.2s, background-color 0.2s;
+      cursor: grab;
+      touch-action: none;
+      display: flex;
+      flex-direction: column;
+    }
+    .task-block:active { cursor: grabbing; box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
+    .task-block-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .task-block-time { font-size: 0.65rem; opacity: 0.8; }
+    
+    /* Plan vs Actual transparency */
+    .plan-block { opacity: 0.85; border-left: 4px solid rgba(0,0,0,0.3); }
+    .actual-block { opacity: 1; border-left: 4px solid rgba(0,0,0,0.6); }
+
+    /* Interaction helpers */
+    .resize-handle {
+      position: absolute;
+      left: 0; right: 0;
+      height: 10px;
+      background: transparent;
+      z-index: 10;
+    }
+    .resize-handle-top { top: 0; cursor: ns-resize; }
+    .resize-handle-bottom { bottom: 0; cursor: ns-resize; }
+    .action-btn { transition: all 0.2s; }
+    .action-btn:hover { background-color: rgba(0,0,0,0.1); }
+    
+    /* Pulse animation for running task */
+    @keyframes pulse-border {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .running-task { animation: pulse-border 2s infinite; border: 2px solid #22c55e; }
+
+    /* Ghost Block (Estimated duration overlay for running task) */
+    .ghost-block {
+      position: absolute;
+      left: 4px; right: 4px;
+      border-radius: 6px;
+      border: 2px dashed #94a3b8;
+      background-color: rgba(241, 245, 249, 0.5);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Markdown preview styling */
+    .md-preview h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
+    .md-preview h2 { font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #334155; }
+    .md-preview ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+    .md-preview p { margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen flex flex-col">
+  <div id="app" v-cloak class="flex flex-col h-full max-w-7xl mx-auto w-full bg-white shadow-lg overflow-hidden">
+    
+    <!-- Top Header Navigation -->
+    <header class="bg-slate-800 text-white p-3 flex justify-between items-center shrink-0">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold tracking-wider flex items-center gap-2">
+          <i class="ph ph-clock-countdown text-2xl text-blue-400"></i>
+          PSP Copilot
+        </h1>
+        <div class="flex items-center bg-slate-700 rounded-full px-3 py-1 ml-4">
+          <button @click="changeDate(-1)" class="p-1 hover:text-blue-300 transition-colors"><i class="ph ph-caret-left"></i></button>
+          <span class="font-medium text-sm mx-3 min-w-[100px] text-center cursor-pointer" @click="$refs.datePicker.showPicker()">
+            {{ formatDateForDisplay(currentDate) }}
+            <span v-if="isToday" class="ml-1 text-xs bg-blue-500 px-2 py-0.5 rounded text-white">Today</span>
+            <input type="date" ref="datePicker" v-model="currentDate" @change="loadDataForCurrentDate" class="sr-only" />
+          </span>
+          <button @click="changeDate(1)" class="p-1 hover:text-blue-300 transition-colors"><i class="ph ph-caret-right"></i></button>
+        </div>
+      </div>
+      
+      <div class="flex gap-2">
+        <button @click="exportData" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded flex items-center gap-1 transition-colors" title="Export all data as JSON">
+          <i class="ph ph-download-simple"></i><span class="hidden sm:inline">Export</span>
+        </button>
+        <label class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-colors" title="Import JSON data">
+          <i class="ph ph-upload-simple"></i><span class="hidden sm:inline">Import</span>
+          <input type="file" accept=".json" @change="importData" class="hidden" />
+        </label>
+        <button @click="openReportModal" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded font-bold flex items-center gap-1 transition-colors ml-2 shadow-sm">
+          <i class="ph ph-file-text"></i><span class="hidden sm:inline">Report</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden flex-col md:flex-row">
+      
+      <!-- Left Panel: Timelines -->
+      <div class="flex-1 flex flex-col min-w-0 border-r border-gray-200">
+        <!-- Timeline Headers -->
+        <div class="flex border-b border-gray-200 bg-gray-50 shrink-0 text-sm font-semibold shadow-sm z-10 relative">
+          <div class="w-16 shrink-0 text-center py-2 text-gray-500 border-r border-gray-200">Time</div>
+          
+          <!-- Plan Header -->
+          <div class="flex-1 border-r border-gray-200 flex flex-col justify-between p-2 pb-1 bg-blue-50/30">
+            <div class="flex justify-between items-center w-full mb-1">
+              <span class="text-blue-800 flex items-center gap-1"><i class="ph ph-calendar-check"></i>Plan</span>
+              <div class="flex gap-1">
+                <button @click="openCopyDateModal('plan')" class="text-xs bg-white border border-gray-300 text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 flex items-center gap-1" title="Copy plan from another date">
+                  <i class="ph ph-copy"></i><span class="hidden lg:inline">Pick</span>
+                </button>
+                <button @click="openPlanModal()" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center gap-1">
+                  <i class="ph ph-plus"></i><span class="hidden lg:inline">Add</span>
+                </button>
+              </div>
+            </div>
+            <!-- Quick Copy Row (Plan) -->
+            <div class="flex gap-1">
+              <button @click="copyYesterday('plan')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1d</button>
+              <button @click="copyLastWeek('plan')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1w</button>
+            </div>
+          </div>
+          
+          <!-- Actual Header -->
+          <div class="flex-1 flex flex-col justify-between p-2 pb-1 bg-emerald-50/30">
+            <div class="flex justify-between items-center w-full mb-1">
+              <span class="text-emerald-800 flex items-center gap-1"><i class="ph ph-play-circle"></i>Actual</span>
+              <div class="flex gap-1">
+                <button @click="reflectPlanToActual" class="text-xs bg-white border border-emerald-300 text-emerald-700 px-2 py-0.5 rounded hover:bg-emerald-50 flex items-center gap-1 shadow-sm" title="Copy today's plan to actuals directly">
+                  <i class="ph ph-arrows-left-right"></i><span class="hidden lg:inline">Sync</span>
+                </button>
+                <button @click="startNewTask" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded hover:bg-emerald-200 flex items-center gap-1">
+                  <i class="ph ph-play"></i><span class="hidden lg:inline">Start</span>
+                </button>
+              </div>
+            </div>
+            <!-- Quick Copy Row (Actual) -->
+            <div class="flex gap-1">
+              <button @click="copyYesterday('actual')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1d</button>
+              <button @click="copyLastWeek('actual')" class="flex-1 text-[10px] bg-white border border-gray-200 text-gray-500 rounded py-0.5 hover:bg-gray-50 truncate">-1w</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scrollable Timeline Area -->
+        <div class="flex-1 overflow-y-auto relative" ref="timelineScroll">
+          <div class="flex">
+            <!-- Time axis (0-24h) -->
+            <div class="w-16 shrink-0 timeline-container border-r border-gray-200">
+              <div v-for="hour in 24" :key="hour-1" class="absolute w-full text-center text-xs text-gray-400 font-medium" :style="{ top: `${(hour-1) * 60}px`, marginTop: '-8px' }">
+                {{ String(hour-1).padStart(2, '0') }}:00
+              </div>
+            </div>
+            
+            <!-- Plan Lane -->
+            <div class="flex-1 timeline-container border-r border-gray-200 relative" id="plan-lane" @dblclick="handleLaneDblClick($event, 'plan')">
+              <div v-for="task in todayPlans" :key="task.id"
+                   :data-id="task.id" data-type="plan"
+                   class="task-block plan-block text-gray-800"
+                   :style="{ top: `${task.top}px`, height: `${task.height}px`, backgroundColor: getTaskColor(task.name, true) }">
+                <div class="resize-handle resize-handle-top"></div>
+                <div class="flex justify-between items-start">
+                  <div class="task-block-title" :title="task.name">{{ task.name }}</div>
+                  <div class="flex gap-1 opacity-0 hover:opacity-100 transition-opacity">
+                    <button @click.stop="openPlanModal(task)" class="action-btn p-0.5 rounded text-gray-600 hover:text-blue-600" title="Edit plan"><i class="ph ph-pencil-simple"></i></button>
+                    <button @click.stop="deleteTask('plan', task.id)" class="action-btn p-0.5 rounded text-gray-600 hover:text-red-600" title="Delete plan"><i class="ph ph-trash"></i></button>
+                  </div>
+                </div>
+                <div class="task-block-time">{{ task.startTime }} - {{ task.endTime }} <span class="ml-1 text-[10px]">({{ calculateDurationH(task.startTime, task.endTime) }})</span></div>
+                <div class="mt-auto flex justify-end">
+                  <button v-if="!isTaskRunning(task.id)" @click.stop="startTaskFromPlan(task)" class="action-btn text-[10px] bg-white/60 px-1.5 py-0.5 rounded hover:bg-white/90 font-medium flex items-center gap-1 shadow-sm" title="Start actual"><i class="ph ph-play"></i>Start</button>
+                </div>
+                <div class="resize-handle resize-handle-bottom"></div>
+              </div>
+            </div>
+            
+            <!-- Actual Lane -->
+            <div class="flex-1 timeline-container relative" id="actual-lane" @dblclick="handleLaneDblClick($event, 'actual')">
+              <!-- Ghost Block for Running Task Estimate -->
+              <div v-if="runningTaskGhost" class="ghost-block" :style="{ top: `${runningTaskGhost.top}px`, height: `${runningTaskGhost.height}px` }"></div>
+
+              <div v-for="task in todayActuals" :key="task.id"
+                   :data-id="task.id" data-type="actual"
+                   class="task-block actual-block text-gray-900"
+                   :class="{'running-task': task.isRunning}"
+                   :style="{ top: `${task.top}px`, height: task.isRunning ? `${Math.max(task.height, 15)}px` : `${task.height}px`, backgroundColor: getTaskColor(task.name, false) }">
+                <div v-if="!task.isRunning" class="resize-handle resize-handle-top"></div>
+                <div class="flex justify-between items-start">
+                  <div class="task-block-title" :title="task.name">
+                    <span v-if="task.isRunning" class="w-2 h-2 bg-red-500 rounded-full inline-block animate-pulse mr-1"></span>
+                    {{ task.name }}
+                  </div>
+                  <div class="flex gap-1" :class="task.isRunning ? '' : 'opacity-0 hover:opacity-100 transition-opacity'">
+                    <button v-if="task.isRunning" @click.stop="stopTask(task.id)" class="action-btn p-1 rounded bg-red-100 text-red-600 hover:bg-red-200" title="Stop task"><i class="ph ph-stop text-sm"></i></button>
+                    <button v-else @click.stop="openActualModal(task)" class="action-btn p-0.5 rounded text-gray-600 hover:text-emerald-600" title="Edit actual"><i class="ph ph-pencil-simple"></i></button>
+                    <button @click.stop="deleteTask('actual', task.id)" class="action-btn p-0.5 rounded text-gray-600 hover:text-red-600" title="Delete actual"><i class="ph ph-trash"></i></button>
+                  </div>
+                </div>
+                <div class="task-block-time">
+                  {{ task.startTime }} - {{ task.endTime || 'Running' }}
+                  <span v-if="!task.isRunning" class="ml-1 text-[10px]">({{ calculateDurationH(task.startTime, task.endTime) }})</span>
+                  <span v-else class="ml-1 text-[10px] font-bold text-red-600">{{ currentRunningDuration }}</span>
+                </div>
+                <div v-if="!task.isRunning" class="resize-handle resize-handle-bottom"></div>
+              </div>
+              
+              <!-- Current Time Line (Only shown on Actual lane) -->
+              <div v-if="isToday" class="current-time-line" :style="{ top: `${currentTimeTop}px` }"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Reflections & Analytics -->
+      <div class="w-full md:w-80 bg-white flex flex-col shrink-0 border-t md:border-t-0 md:border-l border-gray-200 h-[50vh] md:h-auto overflow-y-auto">
+        
+        <!-- Summary Cards -->
+        <div class="p-4 border-b border-gray-100 bg-gray-50/50">
+          <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1 mb-2"><i class="ph ph-chart-pie-slice"></i> Today's Summary by Project (HH:MM)</h3>
+          <div class="space-y-1">
+            <div v-for="(duration, project) in todayProjectSummary" :key="project" class="flex justify-between items-center text-xs p-1.5 rounded bg-white shadow-sm border border-gray-100">
+              <span class="font-medium truncate flex-1 flex items-center gap-1">
+                <span class="w-3 h-3 rounded-sm inline-block" :style="{ backgroundColor: getProjectColor(project, false) }"></span>
+                {{ project || 'No Project' }}
+              </span>
+              <span class="font-bold text-gray-600 ml-2 font-mono bg-gray-50 px-1 rounded">{{ formatMinutesToHHMM(duration) }}</span>
+            </div>
+            <div v-if="Object.keys(todayProjectSummary).length > 0" class="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-200 font-bold px-1.5">
+              <span>Total:</span>
+              <span class="font-mono text-emerald-700 bg-emerald-50 px-1 rounded">{{ formatMinutesToHHMM(todayTotalActualMinutes) }}</span>
+            </div>
+            <div v-if="Object.keys(todayProjectSummary).length === 0" class="text-xs text-gray-400 italic text-center py-2">
+              No actual data for today yet.
+            </div>
+          </div>
+        </div>
+        
+        <!-- All-Time Task Summary -->
+        <div class="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col min-h-0">
+          <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1 mb-2"><i class="ph ph-list-numbers"></i> All-Time Task Summary</h3>
+          <div class="flex gap-2 mb-2 text-xs">
+            <input type="date" v-model="summaryStartDate" class="border rounded px-1 py-0.5 flex-1 w-full bg-white text-gray-600" title="Start Date">
+            <span class="text-gray-400 self-center">-</span>
+            <input type="date" v-model="summaryEndDate" class="border rounded px-1 py-0.5 flex-1 w-full bg-white text-gray-600" title="End Date">
+          </div>
+          <div class="mb-2 relative">
+            <input type="text" v-model="taskFilterQuery" placeholder="Filter by keyword..." class="w-full text-xs border border-gray-200 rounded pl-7 pr-2 py-1.5 focus:outline-none focus:border-blue-400 bg-white">
+            <i class="ph ph-magnifying-glass absolute left-2 top-2 text-gray-400"></i>
+          </div>
+          <!-- Resizable height class added here -->
+          <div class="h-32 min-h-[60px] resize-y overflow-y-auto space-y-1 bg-white p-2 rounded border border-gray-100 shadow-inner">
+            <div v-for="item in filteredTaskSummary" :key="item.name" class="flex justify-between items-center text-xs py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50">
+              <span class="font-medium truncate flex-1" :title="item.name">{{ item.name }}</span>
+              <div class="flex items-center gap-2 ml-2 shrink-0">
+                <span class="text-[10px] text-gray-400">({{ item.count }} times)</span>
+                <span class="font-bold text-gray-600 font-mono w-10 text-right">{{ formatMinutesToHHMM(item.totalMinutes) }}</span>
+              </div>
+            </div>
+            <div v-if="filteredTaskSummary.length === 0" class="text-xs text-gray-400 italic text-center py-4">
+              No matching tasks.
+            </div>
+          </div>
+        </div>
+
+        <!-- Reflection Forms -->
+        <div class="p-4 flex-1 flex flex-col gap-4 bg-white">
+          <div class="flex flex-col h-full">
+            <label class="text-xs font-bold text-red-800 mb-1 flex items-center gap-1"><i class="ph ph-warning-circle"></i> Issues / Problems / Concerns</label>
+            <textarea v-model="todayRecord.issues" placeholder="Any issues or problems noticed during today's work..." class="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 bg-red-50/20 resize-y min-h-[40px] flex-1"></textarea>
+          </div>
+          <div class="flex flex-col h-full">
+            <label class="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1"><i class="ph ph-lightbulb"></i> Discoveries (W)</label>
+            <textarea v-model="todayRecord.discoveries" placeholder="What I noticed from the gap between plan and actual..." class="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 bg-blue-50/20 resize-y min-h-[40px] flex-1"></textarea>
+          </div>
+          <div class="flex flex-col h-full">
+            <label class="text-xs font-bold text-emerald-800 mb-1 flex items-center gap-1"><i class="ph ph-rocket-launch"></i> Next Actions (T)</label>
+            <textarea v-model="todayRecord.actions" placeholder="How to apply this tomorrow..." class="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 bg-emerald-50/20 resize-y min-h-[40px] flex-1"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date Picker Modal (For Copying) -->
+    <div v-if="showCopyDateModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h2 class="font-bold text-gray-700">Copy Plan/Actual from another date</h2>
+          <button @click="showCopyDateModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x text-lg"></i></button>
+        </div>
+        <div class="p-4">
+          <p class="text-sm text-gray-600 mb-4">Select the source date. The data from the selected date will be copied to today ({{ todayString }}).</p>
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Source Date</label>
+            <input type="date" v-model="copySourceDate" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500">
+          </div>
+          <div class="flex justify-end gap-2 mt-6">
+            <button @click="showCopyDateModal = false" class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button @click="executeCopyByDate" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm flex items-center gap-1">
+              <i class="ph ph-copy"></i> Execute Copy
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report Preview Modal -->
+    <div v-if="showReportModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+          <h2 class="font-bold text-gray-700 flex items-center gap-2"><i class="ph ph-file-text text-xl"></i> Daily Report Auto-Preview (Markdown)</h2>
+          <button @click="showReportModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x text-lg"></i></button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 bg-white">
+          <p class="text-xs text-gray-500 mb-4 flex items-center gap-1"><i class="ph ph-info"></i> One-click copy in Markdown format.</p>
+          <div class="border border-gray-200 rounded p-4 bg-gray-50/50">
+            <!-- Render Markdown simple view for preview -->
+            <div class="md-preview text-sm text-gray-800" v-html="reportHtmlPreview"></div>
+          </div>
+        </div>
+        <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 shrink-0">
+          <button @click="showReportModal = false" class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50 font-medium">Close</button>
+          <button @click="copyReportToClipboard" class="px-5 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm font-bold flex items-center gap-2">
+            <i class="ph ph-copy text-lg"></i> Copy
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plan Task Edit Modal -->
+    <div v-if="showPlanModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-blue-50">
+          <h2 class="font-bold text-blue-800">{{ editingTask?.id ? 'Edit Plan' : 'Add Plan' }}</h2>
+          <button @click="showPlanModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x"></i></button>
+        </div>
+        <form @submit.prevent="savePlanTask" class="p-4">
+          <div class="mb-3">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
+            <input type="date" v-model="taskForm.date" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+          </div>
+          <div class="mb-3">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Task Name</label>
+            <input type="text" v-model="taskForm.name" required placeholder="e.g. [Project A] Draft Proposal" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500" ref="planNameInput">
+          </div>
+          <div class="flex gap-3 mb-4">
+            <div class="flex-1">
+              <label class="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
+              <input type="time" v-model="taskForm.startTime" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs font-medium text-gray-700 mb-1">End Time</label>
+              <input type="time" v-model="taskForm.endTime" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+          <div class="flex justify-between items-center mt-6">
+            <button type="button" v-if="editingTask?.id" @click="deleteTask('plan', editingTask.id); showPlanModal = false" class="text-xs text-red-600 hover:text-red-800 px-2 py-1">Delete</button>
+            <div v-else></div>
+            <div class="flex gap-2">
+              <button type="button" @click="showPlanModal = false" class="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button type="submit" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Actual Task Edit Modal -->
+    <div v-if="showActualModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-emerald-50">
+          <h2 class="font-bold text-emerald-800">{{ editingTask?.id ? 'Edit Actual' : 'Add Actual Directly' }}</h2>
+          <button @click="showActualModal = false" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x"></i></button>
+        </div>
+        <form @submit.prevent="saveActualTask" class="p-4">
+          <div class="mb-3">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
+            <input type="date" v-model="taskForm.date" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500">
+          </div>
+          <div class="mb-3">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Task Name</label>
+            <input type="text" v-model="taskForm.name" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500" ref="actualNameInput">
+          </div>
+          <div class="flex gap-3 mb-4">
+            <div class="flex-1">
+              <label class="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
+              <input type="time" v-model="taskForm.startTime" required class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500">
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs font-medium text-gray-700 mb-1">End Time</label>
+              <input type="time" v-model="taskForm.endTime" :required="!taskForm.isRunning" :disabled="taskForm.isRunning" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-400">
+            </div>
+          </div>
+          <div class="mb-4 flex items-center">
+             <input type="checkbox" id="isRunningCb" v-model="taskForm.isRunning" class="mr-2 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+             <label for="isRunningCb" class="text-sm font-medium text-gray-700">(Running)</label>
+          </div>
+          <div class="flex justify-between items-center mt-6">
+            <button type="button" v-if="editingTask?.id" @click="deleteTask('actual', editingTask.id); showActualModal = false" class="text-xs text-red-600 hover:text-red-800 px-2 py-1">Delete</button>
+            <div v-else></div>
+            <div class="flex gap-2">
+              <button type="button" @click="showActualModal = false" class="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button type="submit" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    // --- Helper Functions ---
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+    
+    // Convert "HH:MM" to minutes from 00:00
+    const timeToMinutes = (timeStr) => {
+      if(!timeStr) return 0;
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+    
+    // Convert minutes from 00:00 to "HH:MM"
+    const minutesToTime = (mins) => {
+      mins = Math.max(0, Math.min(1439, mins)); // 0 to 23:59
+      const h = Math.floor(mins / 60);
+      const m = Math.floor(mins % 60);
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+
+    // Calculate Y position based on time (60px per hour = 1px per min)
+    const calculateTop = (timeStr) => timeToMinutes(timeStr);
+    
+    // Calculate Height based on start and end times
+    const calculateHeight = (startStr, endStr) => {
+      if(!startStr || !endStr) return 60;
+      const h = timeToMinutes(endStr) - timeToMinutes(startStr);
+      return h > 0 ? h : 15; // Minimum 15 mins
+    };
+
+    // Extract project name from task string like "[Project A] Task details"
+    const extractProject = (taskName) => {
+      const match = taskName.match(/^\[(.*?)\]/);
+      return match ? match[1] : '';
+    };
+
+    // Color Palette generator for projects (Pastel/vibrant variations for plan vs actual)
+    const colorPalette = [
+      { plan: '#dbeafe', actual: '#93c5fd', name: 'blue' },
+      { plan: '#dcfce7', actual: '#86efac', name: 'green' },
+      { plan: '#fef08a', actual: '#fde047', name: 'yellow' },
+      { plan: '#fce7f3', actual: '#f9a8d4', name: 'pink' },
+      { plan: '#e0e7ff', actual: '#a5b4fc', name: 'indigo' },
+      { plan: '#ffedd5', actual: '#fdba74', name: 'orange' },
+      { plan: '#f3e8ff', actual: '#d8b4fe', name: 'purple' },
+      { plan: '#ccfbf1', actual: '#5eead4', name: 'teal' }
+    ];
+    let projectColorMap = {};
+    let colorIndex = 0;
+
+    const getProjectColor = (project, isPlan) => {
+      if (!project) return isPlan ? '#f1f5f9' : '#cbd5e1'; // Default gray for no-project
+      if (!projectColorMap[project]) {
+        projectColorMap[project] = colorPalette[colorIndex % colorPalette.length];
+        colorIndex++;
+      }
+      return isPlan ? projectColorMap[project].plan : projectColorMap[project].actual;
+    };
+
+    const getTaskColor = (taskName, isPlan) => {
+      const project = extractProject(taskName);
+      return getProjectColor(project, isPlan);
+    };
+
+    // Format YYYY-MM-DD
+    const formatDateStr = (dateObj) => {
+      const d = new Date(dateObj);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().split('T')[0];
+    };
+
+    createApp({
+      data() {
+        return {
+          currentDate: formatDateStr(new Date()),
+          currentTimeTop: 0,
+          currentRunningDuration: '00:00',
+          timerInterval: null,
+          timeIndicatorInterval: null,
+          
+          records: {}, // { 'YYYY-MM-DD': { plans: [], actuals: [], issues: '', discoveries: '', actions: '' } }
+          
+          showPlanModal: false,
+          showActualModal: false,
+          showReportModal: false,
+          showCopyDateModal: false,
+          
+          taskForm: { id: '', name: '', startTime: '', endTime: '', date: '', isRunning: false },
+          editingTask: null,
+          targetLane: 'plan', // 'plan' or 'actual'
+          copySourceDate: '',
+          copyTargetType: 'plan',
+
+          summaryStartDate: '',
+          summaryEndDate: '',
+          taskFilterQuery: ''
+        }
+      },
+      computed: {
+        todayString() { return this.currentDate; },
+        isToday() { return this.currentDate === formatDateStr(new Date()); },
+        todayRecord() {
+          if (!this.records[this.todayString]) {
+            this.records[this.todayString] = { plans: [], actuals: [], issues: '', discoveries: '', actions: '' };
+          }
+          return this.records[this.todayString];
+        },
+        todayPlans() {
+          return this.todayRecord.plans.map(t => ({
+            ...t,
+            top: calculateTop(t.startTime),
+            height: calculateHeight(t.startTime, t.endTime)
+          })).sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+        },
+        todayActuals() {
+          return this.todayRecord.actuals.map(t => ({
+            ...t,
+            top: calculateTop(t.startTime),
+            height: t.isRunning ? calculateHeight(t.startTime, minutesToTime(this.currentTimeTop)) : calculateHeight(t.startTime, t.endTime)
+          })).sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+        },
+        runningTask() {
+          return this.todayRecord.actuals.find(t => t.isRunning);
+        },
+        runningTaskGhost() {
+          if (!this.runningTask || !this.runningTask.endTime) return null;
+          return {
+            top: calculateTop(this.runningTask.startTime),
+            height: calculateHeight(this.runningTask.startTime, this.runningTask.endTime)
+          };
+        },
+        todayProjectSummary() {
+          const summary = {};
+          this.todayRecord.actuals.forEach(task => {
+            const proj = extractProject(task.name);
+            let mins = 0;
+            if (task.isRunning) {
+              mins = Math.max(1, timeToMinutes(minutesToTime(this.currentTimeTop)) - timeToMinutes(task.startTime));
+            } else {
+              mins = timeToMinutes(task.endTime) - timeToMinutes(task.startTime);
+            }
+            if (mins > 0) {
+              summary[proj] = (summary[proj] || 0) + mins;
+            }
+          });
+          return summary;
+        },
+        todayTotalActualMinutes() {
+          return Object.values(this.todayProjectSummary).reduce((sum, val) => sum + val, 0);
+        },
+        
+        // ---- Cross-date Task Summary ----
+        allTimeTaskStats() {
+          const stats = {};
+          
+          let startD = this.summaryStartDate ? new Date(this.summaryStartDate) : new Date(0);
+          let endD = this.summaryEndDate ? new Date(this.summaryEndDate) : new Date(8640000000000000); // Max date
+
+          for (const [dateStr, record] of Object.entries(this.records)) {
+             const d = new Date(dateStr);
+             if (d >= startD && d <= endD) {
+                 record.actuals.forEach(task => {
+                    let mins = 0;
+                    if(task.isRunning && dateStr === formatDateStr(new Date())) {
+                       mins = Math.max(1, timeToMinutes(minutesToTime(this.currentTimeTop)) - timeToMinutes(task.startTime));
+                    } else if(!task.isRunning) {
+                       mins = timeToMinutes(task.endTime) - timeToMinutes(task.startTime);
+                    }
+                    if(mins > 0) {
+                       if(!stats[task.name]) stats[task.name] = { name: task.name, totalMinutes: 0, count: 0 };
+                       stats[task.name].totalMinutes += mins;
+                       stats[task.name].count += 1;
+                    }
+                 });
+             }
+          }
+          return Object.values(stats).sort((a,b) => b.totalMinutes - a.totalMinutes);
+        },
+        filteredTaskSummary() {
+           let list = this.allTimeTaskStats;
+           if(this.taskFilterQuery) {
+              const q = this.taskFilterQuery.toLowerCase();
+              list = list.filter(t => t.name.toLowerCase().includes(q));
+           }
+           return list;
+        },
+
+        // ---- Report Generation ----
+        markdownReport() {
+          const d = this.todayRecord;
+          const projSummary = this.todayProjectSummary;
+          const totalMins = this.todayTotalActualMinutes;
+          
+          let md = `# Daily Report (${this.currentDate})\n\n`;
+          
+          md += `## Today's Actuals\n`;
+          md += `**[Summary by Project (Total: ${this.formatMinutesToHHMM(totalMins)})]**\n`;
+          if (Object.keys(projSummary).length === 0) {
+            md += `- No data\n`;
+          } else {
+            for (const [proj, mins] of Object.entries(projSummary)) {
+              md += `- ${proj || 'No Project'}: ${this.formatMinutesToHHMM(mins)}\n`;
+            }
+          }
+          
+          md += `\n**[Detailed Tasks]**\n`;
+          if (d.actuals.length === 0) md += `- No data\n`;
+          d.actuals.forEach(t => {
+            const timeStr = t.isRunning ? `${t.startTime} - Running` : `${t.startTime} - ${t.endTime} (${this.calculateDurationH(t.startTime, t.endTime)})`;
+            md += `- ${t.name} [${timeStr}]\n`;
+          });
+          
+          md += `\n## Issues / Problems / Concerns\n`;
+          md += `${d.issues || 'Not entered'}\n\n`;
+          
+          md += `## Discoveries (W)\n`;
+          md += `${d.discoveries || 'Not entered'}\n\n`;
+          
+          md += `## Next Actions (T)\n`;
+          md += `${d.actions || 'Not entered'}\n`;
+          
+          return md;
+        },
+        reportHtmlPreview() {
+           // Very simple markdown to html for preview (lists and linebreaks)
+           return this.markdownReport
+             .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+             .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+             .replace(/^\*\*\[(.*?)\]\*\*/gim, '<strong>$1</strong>')
+             .replace(/^- (.*$)/gim, '<ul><li>$1</li></ul>')
+             .replace(/<\/ul>\n<ul>/gim, '')
+             .replace(/\n/gim, '<br>');
+        }
+      },
+      methods: {
+        // --- Initialization & Time Setup ---
+        initTime() {
+          this.updateCurrentTime();
+          this.timeIndicatorInterval = setInterval(this.updateCurrentTime, 60000); // Every min
+          
+          // Timer for running task UI update (every second)
+          this.timerInterval = setInterval(() => {
+            if (this.runningTask) {
+              const startMins = timeToMinutes(this.runningTask.startTime);
+              const curMins = timeToMinutes(minutesToTime(this.currentTimeTop));
+              let diff = curMins - startMins;
+              if (diff < 0) diff = 0;
+              this.currentRunningDuration = this.formatMinutesToHHMM(diff);
+            }
+          }, 1000);
+        },
+        updateCurrentTime() {
+          const now = new Date();
+          const mins = now.getHours() * 60 + now.getMinutes();
+          this.currentTimeTop = mins;
+          
+          // If we are looking at today, scroll to current time on initial load
+          if (this.isToday && !this.initialScrolled) {
+             this.scrollToTime(mins);
+             this.initialScrolled = true;
+          }
+        },
+        scrollToTime(mins) {
+          this.$nextTick(() => {
+            const container = this.$refs.timelineScroll;
+            if(container) {
+              // Scroll so current time is roughly in middle of viewport
+              container.scrollTop = Math.max(0, mins - container.clientHeight / 2);
+            }
+          });
+        },
+        formatDateForDisplay(dateStr) {
+          const d = new Date(dateStr);
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          return `${d.getMonth()+1}/${d.getDate()} (${days[d.getDay()]})`;
+        },
+        changeDate(days) {
+          const d = new Date(this.currentDate);
+          d.setDate(d.getDate() + days);
+          
+          const newMonth = d.getMonth();
+          const oldMonth = new Date(this.currentDate).getMonth();
+          
+          this.currentDate = formatDateStr(d);
+          this.loadDataForCurrentDate();
+          
+          // Auto-update summary dates when month changes
+          if (newMonth !== oldMonth) {
+             this.setDefaultSummaryDates();
+          }
+        },
+        setDefaultSummaryDates() {
+          const d = new Date(this.currentDate);
+          const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+          const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+          this.summaryStartDate = formatDateStr(firstDay);
+          this.summaryEndDate = formatDateStr(lastDay);
+        },
+        
+        // --- Data Persistence ---
+        saveData() {
+          localStorage.setItem('pspCopilotData', JSON.stringify(this.records));
+        },
+        loadData() {
+          const data = localStorage.getItem('pspCopilotData');
+          if (data) {
+            try {
+              this.records = JSON.parse(data);
+            } catch(e) {
+              console.error('Failed to parse local storage data');
+              this.records = {};
+            }
+          }
+          // Seed initial dummy data if brand new
+          if (Object.keys(this.records).length === 0) {
+            this.records[this.todayString] = {
+              plans: [
+                { id: generateId(), name: 'Morning Sync & Emails', startTime: '09:00', endTime: '09:30' },
+                { id: generateId(), name: '[Project A] Draft Proposal', startTime: '09:30', endTime: '11:00' }
+              ],
+              actuals: [], issues: '', discoveries: '', actions: ''
+            };
+            this.saveData();
+          }
+          
+          this.setDefaultSummaryDates();
+        },
+        loadDataForCurrentDate() {
+          if (!this.records[this.todayString]) {
+            this.records[this.todayString] = { plans: [], actuals: [], issues: '', discoveries: '', actions: '' };
+          }
+        },
+        exportData() {
+           const dataStr = JSON.stringify(this.records, null, 2);
+           const blob = new Blob([dataStr], { type: "application/json" });
+           const url = URL.createObjectURL(blob);
+           const a = document.createElement('a');
+           a.href = url;
+           a.download = `psp_copilot_backup_${formatDateStr(new Date())}.json`;
+           a.click();
+           URL.revokeObjectURL(url);
+        },
+        importData(event) {
+           const file = event.target.files[0];
+           if (!file) return;
+           const reader = new FileReader();
+           reader.onload = (e) => {
+             try {
+               const parsed = JSON.parse(e.target.result);
+               if(typeof parsed === 'object') {
+                  this.records = parsed;
+                  this.saveData();
+                  alert('Successfully imported data!');
+                  this.loadDataForCurrentDate();
+               }
+             } catch(err) {
+               alert('Failed to read JSON file. Please check the file format.');
+             }
+             event.target.value = ''; // reset
+           };
+           reader.readAsText(file);
+        },
+
+        // --- Utils ---
+        calculateDurationH(start, end) {
+          if(!start || !end) return '';
+          const m = timeToMinutes(end) - timeToMinutes(start);
+          return this.formatMinutesToHHMM(m);
+        },
+        formatMinutesToHHMM(mins) {
+          if(mins <= 0) return '0:00';
+          const h = Math.floor(mins / 60);
+          const m = Math.floor(mins % 60);
+          return `${h}:${String(m).padStart(2, '0')}`;
+        },
+        snapToGrid(y) {
+          return Math.round(y / 15) * 15; // 15px = 15mins
+        },
+
+        // --- Modals & Forms ---
+        handleLaneDblClick(e, type) {
+          // Double click on empty space to add task at that time
+          if(e.target.id === `${type}-lane` || e.target.classList.contains('timeline-container')) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const snappedY = this.snapToGrid(y);
+            const startTime = minutesToTime(snappedY);
+            const endTime = minutesToTime(snappedY + 60); // Default 1 hr
+            
+            this.taskForm = { id: '', name: '', startTime, endTime, date: this.currentDate, isRunning: false };
+            this.editingTask = null;
+            if(type === 'plan') {
+                this.showPlanModal = true;
+                this.$nextTick(() => this.$refs.planNameInput?.focus());
+            } else {
+                this.showActualModal = true;
+                this.$nextTick(() => this.$refs.actualNameInput?.focus());
+            }
+          }
+        },
+        openPlanModal(task = null) {
+          if(task) {
+            this.editingTask = task;
+            this.taskForm = { ...task, date: this.currentDate };
+          } else {
+            this.editingTask = null;
+            this.taskForm = { id: '', name: '', startTime: '09:00', endTime: '10:00', date: this.currentDate };
+          }
+          this.showPlanModal = true;
+          this.$nextTick(() => this.$refs.planNameInput?.focus());
+        },
+        openActualModal(task = null) {
+          if(task) {
+            this.editingTask = task;
+            this.taskForm = { ...task, date: this.currentDate };
+          } else {
+            this.editingTask = null;
+            this.taskForm = { id: '', name: '', startTime: '09:00', endTime: '10:00', date: this.currentDate, isRunning: false };
+          }
+          this.showActualModal = true;
+          this.$nextTick(() => this.$refs.actualNameInput?.focus());
+        },
+        
+        savePlanTask() {
+          this.saveTaskGeneral('plan');
+          this.showPlanModal = false;
+        },
+        saveActualTask() {
+          // If starting a running task manually, stop others
+          if(this.taskForm.isRunning) {
+             this.todayRecord.actuals.forEach(t => t.isRunning = false);
+             this.taskForm.endTime = ''; // Clear end time if running
+          }
+          this.saveTaskGeneral('actual');
+          this.showActualModal = false;
+        },
+        saveTaskGeneral(type) {
+          const list = type === 'plan' ? this.todayRecord.plans : this.todayRecord.actuals;
+          
+          if(this.taskForm.date !== this.currentDate) {
+             // Task moved to another date
+             if (!this.records[this.taskForm.date]) {
+                this.records[this.taskForm.date] = { plans: [], actuals: [], issues: '', discoveries: '', actions: '' };
+             }
+             const targetList = type === 'plan' ? this.records[this.taskForm.date].plans : this.records[this.taskForm.date].actuals;
+             
+             if(this.editingTask) {
+                // Remove from current
+                const idx = list.findIndex(t => t.id === this.editingTask.id);
+                if(idx > -1) list.splice(idx, 1);
+             }
+             // Add to new
+             targetList.push({ ...this.taskForm, id: this.editingTask?.id || generateId() });
+             
+          } else {
+            if(this.editingTask) {
+              const idx = list.findIndex(t => t.id === this.editingTask.id);
+              if(idx > -1) {
+                list[idx] = { ...this.taskForm };
+              }
+            } else {
+              list.push({ ...this.taskForm, id: generateId() });
+            }
+          }
+          this.saveData();
+        },
+        deleteTask(type, id) {
+          if(confirm(`Delete this ${type}?`)) {
+            const list = type === 'plan' ? this.todayRecord.plans : this.todayRecord.actuals;
+            const idx = list.findIndex(t => t.id === id);
+            if(idx > -1) list.splice(idx, 1);
+            this.saveData();
+          }
+        },
+
+        // --- Task Execution Actions ---
+        startNewTask() {
+           const name = prompt('Enter task name to start now:', 'Ad-hoc task');
+           if(!name) return;
+           this.startTaskLogic(name, minutesToTime(this.currentTimeTop), null);
+        },
+        startTaskFromPlan(planTask) {
+           this.startTaskLogic(planTask.name, minutesToTime(this.currentTimeTop), planTask.endTime);
+        },
+        startTaskLogic(name, startTime, estimatedEndTime) {
+           // Stop current running task if any
+           if(this.runningTask) this.stopTask(this.runningTask.id);
+           
+           this.todayRecord.actuals.push({
+             id: generateId(),
+             name: name,
+             startTime: startTime,
+             endTime: estimatedEndTime, // Keeping estimate for ghost display
+             isRunning: true
+           });
+           this.saveData();
+           this.scrollToTime(timeToMinutes(startTime));
+        },
+        stopTask(id) {
+           const task = this.todayRecord.actuals.find(t => t.id === id);
+           if(task) {
+              task.isRunning = false;
+              task.endTime = minutesToTime(this.currentTimeTop);
+              this.saveData();
+           }
+        },
+        isTaskRunning(taskId) {
+           // Check if there is an actual task with same name running
+           // This is a naive check. A better way is to link plan ID to actual, but name match is simpler.
+           const planTask = this.todayRecord.plans.find(t => t.id === taskId);
+           if(!planTask) return false;
+           return this.todayRecord.actuals.some(t => t.name === planTask.name && t.isRunning);
+        },
+
+        // --- Copy Functions ---
+        reflectPlanToActual() {
+           if(this.todayRecord.plans.length === 0) {
+              alert('No plan data found for today.');
+              return;
+           }
+           if(confirm(`Copy today's plans (${this.todayRecord.plans.length} items) to actuals?`)) {
+              this.todayRecord.plans.forEach(p => {
+                 this.todayRecord.actuals.push({
+                    id: generateId(),
+                    name: p.name,
+                    startTime: p.startTime,
+                    endTime: p.endTime,
+                    isRunning: false
+                 });
+              });
+              this.saveData();
+              alert('Successfully reflected today\'s plan to actuals!');
+           }
+        },
+        copyYesterday(type) {
+           const d = new Date(this.currentDate);
+           d.setDate(d.getDate() - 1);
+           this.executeCopy(formatDateStr(d), type);
+        },
+        copyLastWeek(type) {
+           const d = new Date(this.currentDate);
+           d.setDate(d.getDate() - 7);
+           this.executeCopy(formatDateStr(d), type);
+        },
+        openCopyDateModal(type) {
+           this.copyTargetType = type;
+           const d = new Date(this.currentDate);
+           d.setDate(d.getDate() - 1);
+           this.copySourceDate = formatDateStr(d);
+           this.showCopyDateModal = true;
+        },
+        executeCopyByDate() {
+           if(this.copySourceDate) {
+              this.executeCopy(this.copySourceDate, this.copyTargetType);
+              this.showCopyDateModal = false;
+           }
+        },
+        executeCopy(sourceDateStr, type) {
+           const sourceRecord = this.records[sourceDateStr];
+           const sourceList = sourceRecord ? (type === 'plan' ? sourceRecord.plans : sourceRecord.actuals) : [];
+           
+           if(sourceList.length === 0) {
+              alert(`No ${type} data found for ${sourceDateStr}.`);
+              return;
+           }
+           
+           if(confirm(`Copy ${type}s (${sourceList.length} items) from ${sourceDateStr} to ${this.currentDate}?`)) {
+              const targetList = type === 'plan' ? this.todayRecord.plans : this.todayRecord.actuals;
+              sourceList.forEach(item => {
+                 targetList.push({
+                    id: generateId(),
+                    name: item.name,
+                    startTime: item.startTime,
+                    endTime: item.endTime,
+                    isRunning: false // Never copy running state
+                 });
+              });
+              this.saveData();
+              alert('Successfully copied!');
+           }
+        },
+
+        // --- Report Modal ---
+        openReportModal() {
+           this.showReportModal = true;
+        },
+        copyReportToClipboard() {
+           navigator.clipboard.writeText(this.markdownReport).then(() => {
+              alert('Copied daily report (Markdown) to clipboard!');
+              this.showReportModal = false;
+           }).catch(err => {
+              console.error('Could not copy text: ', err);
+              alert('Failed to copy.');
+           });
+        },
+
+        // --- interact.js Drag & Resize Setup ---
+        setupInteractJS() {
+          const self = this;
+          
+          // Helper to update task time based on Y position/height
+          const updateTaskFromDOM = (el) => {
+             const id = el.getAttribute('data-id');
+             const type = el.getAttribute('data-type');
+             const top = parseFloat(el.style.top);
+             const height = parseFloat(el.style.height);
+             
+             const newStartMins = top;
+             const newEndMins = top + height;
+             
+             const list = type === 'plan' ? self.todayRecord.plans : self.todayRecord.actuals;
+             const task = list.find(t => t.id === id);
+             
+             if(task) {
+                task.startTime = minutesToTime(newStartMins);
+                if(!task.isRunning) {
+                   task.endTime = minutesToTime(newEndMins);
+                }
+                self.saveData();
+             }
+          };
+
+          interact('.task-block')
+            .draggable({
+              inertia: false,
+              modifiers: [
+                interact.modifiers.restrictRect({
+                  restriction: 'parent',
+                  endOnly: false
+                }),
+                interact.modifiers.snap({
+                  targets: [
+                    interact.createSnapGrid({ x: 1, y: 15 }) // Snap to 15 mins
+                  ],
+                  range: Infinity,
+                  relativePoints: [ { x: 0, y: 0 } ]
+                })
+              ],
+              autoScroll: true,
+              listeners: {
+                start(event) {
+                  // Don't drag if it's a running task
+                  if(event.target.classList.contains('running-task')) return false;
+                },
+                move(event) {
+                  if(event.target.classList.contains('running-task')) return;
+                  const target = event.target;
+                  // Only allow vertical movement
+                  const y = (parseFloat(target.style.top) || 0) + event.dy;
+                  target.style.top = `${Math.max(0, y)}px`;
+                },
+                end(event) {
+                   if(event.target.classList.contains('running-task')) return;
+                   updateTaskFromDOM(event.target);
+                }
+              }
+            })
+            .resizable({
+              edges: { left: false, right: false, bottom: '.resize-handle-bottom', top: '.resize-handle-top' },
+              modifiers: [
+                interact.modifiers.restrictEdges({
+                  outer: 'parent'
+                }),
+                interact.modifiers.restrictSize({
+                  min: { height: 15 } // Min 15 mins
+                }),
+                interact.modifiers.snapSize({
+                  targets: [
+                    interact.createSnapGrid({ x: 1, y: 15 })
+                  ],
+                })
+              ],
+              listeners: {
+                move(event) {
+                  const target = event.target;
+                  if(target.classList.contains('running-task')) return; // Can't resize running task manually
+
+                  let y = parseFloat(target.style.top) || 0;
+                  
+                  target.style.height = `${event.rect.height}px`;
+                  
+                  // if resizing from top, adjust top position
+                  if(event.edges.top) {
+                     y += event.dy;
+                     target.style.top = `${y}px`;
+                  }
+                },
+                end(event) {
+                   if(event.target.classList.contains('running-task')) return;
+                   updateTaskFromDOM(event.target);
+                }
+              }
+            });
+        }
+      },
+      mounted() {
+        this.loadData();
+        this.initTime();
+        this.$nextTick(() => {
+           this.setupInteractJS();
+        });
+      },
+      beforeUnmount() {
+        if(this.timerInterval) clearInterval(this.timerInterval);
+        if(this.timeIndicatorInterval) clearInterval(this.timeIndicatorInterval);
+      },
+      watch: {
+         // Auto-save reflections when changed
+         'todayRecord.issues'() { this.saveData(); },
+         'todayRecord.discoveries'() { this.saveData(); },
+         'todayRecord.actions'() { this.saveData(); }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
