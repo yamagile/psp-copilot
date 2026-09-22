@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,12 +11,12 @@
         .timeline-grid {
             background-image: linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
             background-size: 100% 60px;
-            height: 1440px; /* 24 hours x 60px (1px per minute) */
+            height: 1440px; /* 24時間 × 60px(1分=1px) */
             position: relative;
         }
         @media (max-width: 1023px) {
             .timeline-grid {
-                height: 960px; /* 16 hours on mobile */
+                height: 960px; /* モバイルでは 16 時間分 */
                 background-size: 100% 60px;
             }
         }
@@ -52,7 +52,7 @@
         }
         .plan-block:hover { filter: brightness(0.95); z-index: 30; }
         
-        /* Action buttons shown on hover */
+        /* ホバー時に現れるアクションボタン群 */
         .plan-actions, .actual-actions {
             display: flex;
         }
@@ -134,23 +134,23 @@
                     <button @click="changeDate(-1)" class="px-2 lg:px-2.5 py-0.5 lg:py-1 hover:bg-white rounded shadow-sm text-xs"><i class="fas fa-chevron-left"></i></button>
                     <input type="date" v-model="currentDate" class="bg-transparent font-bold text-xs lg:text-sm mx-1 lg:mx-2 outline-none cursor-pointer w-28 lg:w-auto">
                     <button @click="changeDate(1)" class="px-2 lg:px-2.5 py-0.5 lg:py-1 hover:bg-white rounded shadow-sm text-xs"><i class="fas fa-chevron-right"></i></button>
-                    <button @click="setToday" class="ml-1 px-1.5 lg:px-2 py-0.5 lg:py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 font-semibold text-[10px] lg:text-xs">Today</button>
+                    <button @click="setToday" class="ml-1 px-1.5 lg:px-2 py-0.5 lg:py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 font-semibold text-[10px] lg:text-xs">今日</button>
                 </div>
             </div>
 
             <div class="flex items-center gap-2 lg:gap-3 text-xs lg:text-sm">
                 <div class="flex items-center gap-0.5 lg:gap-1 bg-slate-100 p-0.5 lg:p-1 rounded-lg">
-                    <button @click="exportJson" class="px-1.5 lg:px-2.5 py-0.5 lg:py-1 bg-white hover:bg-slate-50 rounded shadow-sm text-slate-700 font-semibold flex items-center gap-0.5 lg:gap-1 text-xs" title="Save all data as JSON">
-                        <i class="fas fa-download text-indigo-600"></i> <span class="hidden lg:inline">Export</span>
+                    <button @click="exportJson" class="px-1.5 lg:px-2.5 py-0.5 lg:py-1 bg-white hover:bg-slate-50 rounded shadow-sm text-slate-700 font-semibold flex items-center gap-0.5 lg:gap-1 text-xs" title="全データをJSONファイルとして保存">
+                        <i class="fas fa-download text-indigo-600"></i> <span class="hidden lg:inline">書き出し</span>
                     </button>
-                    <label class="px-1.5 lg:px-2.5 py-0.5 lg:py-1 bg-white hover:bg-slate-50 rounded shadow-sm text-slate-700 font-semibold flex items-center gap-0.5 lg:gap-1 cursor-pointer text-xs" title="Load a saved JSON file">
-                        <i class="fas fa-upload text-indigo-600"></i> <span class="hidden lg:inline">Import</span>
+                    <label class="px-1.5 lg:px-2.5 py-0.5 lg:py-1 bg-white hover:bg-slate-50 rounded shadow-sm text-slate-700 font-semibold flex items-center gap-0.5 lg:gap-1 cursor-pointer text-xs" title="保存したJSONファイルを読み込み">
+                        <i class="fas fa-upload text-indigo-600"></i> <span class="hidden lg:inline">読み込み</span>
                         <input type="file" @change="importJson" accept=".json" class="hidden">
                     </label>
                 </div>
 
                 <button @click="openReportModal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1">
-                    <i class="fas fa-file-alt"></i> <span class="hidden lg:inline">Report</span><span class="lg:hidden">Report</span>
+                    <i class="fas fa-file-alt"></i> <span class="hidden lg:inline">日報出力</span><span class="lg:hidden">日報</span>
                 </button>
                 <div class="font-mono font-bold text-sm lg:text-base text-slate-700 bg-slate-100 px-2 lg:px-3 py-0.5 lg:py-1 rounded-md">
                     <i class="fas fa-clock mr-1 lg:mr-1.5 text-indigo-500"></i><span class="text-xs lg:text-base">{{ formatTimeDisplay(now) }}</span>
@@ -165,32 +165,32 @@
                 <div class="flex flex-col flex-1 overflow-y-auto relative" id="timeline" @mousemove="onMouseMove" @mouseup="onMouseUp" @mouseleave="onMouseUp" @touchmove="onMouseMove" @touchend="onMouseUp">
                     
                     <div class="flex bg-slate-100 border-b border-slate-200 text-xs lg:text-sm font-bold text-slate-600 sticky top-0 z-40 shadow-sm shrink-0 select-none">
-                        <div class="w-12 lg:w-16 text-center py-1 lg:py-2 border-r border-slate-200 shrink-0 text-xs">Time</div>
+                        <div class="w-12 lg:w-16 text-center py-1 lg:py-2 border-r border-slate-200 shrink-0 text-xs">時間</div>
                         
                         <div class="flex-1 text-center py-1 lg:py-2 border-r border-slate-200 text-blue-700 flex justify-between items-center px-1 lg:px-2 text-xs lg:text-sm gap-0.5 lg:gap-1">
                             <div class="flex items-center gap-0.5 lg:gap-1">
-                                <span class="hidden lg:inline text-xs">Plan</span>
-                                <span class="lg:hidden text-[10px]">Plan</span>
-                                <button @click="openCopyDateModal('plan')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="Copy a plan from another date"><i class="fas fa-calendar-alt"></i> Copy</button>
+                                <span class="hidden lg:inline text-xs">計画 (Plan)</span>
+                                <span class="lg:hidden text-[10px]">計画</span>
+                                <button @click="openCopyDateModal('plan')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="任意の別の日付から計画をコピー"><i class="fas fa-calendar-alt"></i> 指定</button>
                             </div>
                             <button @click="openPlanModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5">
-                                <i class="fas fa-plus text-[8px] lg:text-[9px]"></i> <span class="hidden lg:inline">Add</span>
+                                <i class="fas fa-plus text-[8px] lg:text-[9px]"></i> <span class="hidden lg:inline">追加</span>
                             </button>
                         </div>
 
                         <div class="flex-1 text-center py-1 lg:py-2 text-emerald-700 flex justify-between items-center px-1 lg:px-2 text-xs lg:text-sm gap-0.5 lg:gap-1">
                             <div class="flex items-center gap-0.5 lg:gap-1">
-                                <span class="hidden lg:inline text-xs">Actual</span>
-                                <span class="lg:hidden text-[10px]">Actual</span>
-                                <button @click="copyActualsFromPlan" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="Copy today's plan to actuals">Copy</button>
-                                <button @click="openCopyDateModal('actual')" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="Copy actuals from another date"><i class="fas fa-calendar-alt"></i> Copy</button>
+                                <span class="hidden lg:inline text-xs">実績 (Actual)</span>
+                                <span class="lg:hidden text-[10px]">実績</span>
+                                <button @click="copyActualsFromPlan" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="本日の計画を実績にそのままコピー">計画反<span class="hidden lg:inline">映</span></button>
+                                <button @click="openCopyDateModal('actual')" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-[9px] lg:text-[10px] font-semibold transition flex items-center gap-0.5" title="任意の別の日付から実績をコピー"><i class="fas fa-calendar-alt"></i> 指定</button>
                             </div>
                             <div class="flex items-center gap-0.5 lg:gap-1">
-                                <button @click="quickStartTaskPrompt" class="bg-emerald-500 hover:bg-emerald-600 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5" title="Start a new task now">
-                                    <i class="fas fa-play text-[8px]"></i> <span class="hidden lg:inline">Start</span>
+                                <button @click="quickStartTaskPrompt" class="bg-emerald-500 hover:bg-emerald-600 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5" title="今すぐ新しいタスクの計測を開始">
+                                    <i class="fas fa-play text-[8px]"></i> <span class="hidden lg:inline">開始</span>
                                 </button>
                                 <button @click="openActualModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 lg:px-2 py-0.5 rounded text-[9px] lg:text-[11px] shadow-sm transition flex items-center gap-0.5">
-                                    <i class="fas fa-plus text-[8px] lg:text-[9px]"></i> <span class="hidden lg:inline">Add</span>
+                                    <i class="fas fa-plus text-[8px] lg:text-[9px]"></i> <span class="hidden lg:inline">追加</span>
                                 </button>
                             </div>
                         </div>
@@ -206,7 +206,7 @@
                         
                         <div class="flex-1 flex timeline-grid relative">
                             
-                            <!-- Plan lane -->
+                            <!-- 計画レーン -->
                             <div class="timeline-lane flex-1 border-r border-slate-200/50">
                                 <div v-for="item in computedDailyPlans" :key="`plan-${item.task.id}`" 
                                     class="block-base plan-block group"
@@ -222,17 +222,17 @@
                                     <div class="plan-actions absolute top-1 right-1 items-center gap-1 z-30 pointer-events-auto">
                                         <button @click="openPlanModal(item.task)" 
                                                 class="bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
-                                                title="Edit plan">
+                                                title="計画を編集">
                                             <i class="fas fa-pen text-[9px]"></i>
                                         </button>
                                         <button @click="deletePlanById(item.task.id)" 
                                                 class="bg-white text-red-500 border border-red-200 hover:bg-red-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
-                                                title="Delete plan">
+                                                title="計画を削除">
                                             <i class="fas fa-trash text-[9px]"></i>
                                         </button>
                                         <button @click="startTask(item.task)" 
                                                 class="bg-blue-600 text-white hover:bg-blue-700 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
-                                                title="Start actual">
+                                                title="実績をスタート">
                                             <i class="fas fa-play text-[9px] ml-0.5"></i>
                                         </button>
                                     </div>
@@ -248,10 +248,10 @@
                                 </div>
                             </div>
                             
-                            <!-- Actual lane -->
+                            <!-- 実績レーン -->
                             <div class="timeline-lane flex-1">
                                 
-                                <!-- Target ghost for running tasks -->
+                                <!-- 実行中のターゲットゴースト（点線） -->
                                 <div v-for="item in computedDailyActuals" :key="`ghost-${item.task.id}`">
                                     <div v-if="item.task.targetMinutes && item.task.isRunning" 
                                          class="actual-ghost"
@@ -268,19 +268,19 @@
                                     
                                     <button v-if="item.task.isRunning" @click.stop="stopTask(item.task)" 
                                             class="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center shadow-md z-30 transition-transform hover:scale-110 pointer-events-auto"
-                                            title="Stop task">
+                                            title="タスクを停止">
                                         <i class="fas fa-stop text-[9px]"></i>
                                     </button>
 
                                     <div v-else class="actual-actions absolute top-1 right-1 items-center gap-1 z-30 pointer-events-auto">
                                         <button @click="openActualModal(item.task)" 
                                                 class="bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
-                                                title="Edit actual">
+                                                title="実績を編集">
                                             <i class="fas fa-pen text-[9px]"></i>
                                         </button>
                                         <button @click="deleteActualById(item.task.id)" 
                                                 class="bg-white text-red-500 border border-red-200 hover:bg-red-50 rounded-full w-5 h-5 flex items-center justify-center shadow-md transition-transform hover:scale-110"
-                                                title="Delete actual">
+                                                title="実績を削除">
                                             <i class="fas fa-trash text-[9px]"></i>
                                         </button>
                                     </div>
@@ -288,7 +288,7 @@
                                     <div class="relative z-20 flex flex-wrap items-baseline gap-x-2 pr-10 leading-tight text-shadow-sm pointer-events-none mt-1">
                                         <span class="font-bold">{{ item.task.title }}</span>
                                         <span class="text-[10px] font-medium opacity-90">
-                                            {{ formatTime(item.task.start) }}-{{ item.task.isRunning ? 'Running' : formatTime(item.task.end) }} ({{ formatDurationHHMM(calcDuration(item.task.start, item.task.isRunning ? now : item.task.end)) }})
+                                            {{ formatTime(item.task.start) }}-{{ item.task.isRunning ? '進行中' : formatTime(item.task.end) }} ({{ formatDurationHHMM(calcDuration(item.task.start, item.task.isRunning ? now : item.task.end)) }})
                                         </span>
                                     </div>
                                     
@@ -319,16 +319,16 @@
                 
                 <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                     <h2 class="text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between border-b border-slate-100 pb-1">
-                        <span><i class="fas fa-chart-pie text-emerald-600 mr-1.5"></i>Today's Projects (HH:MM)</span>
-                        <span class="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold select-all">Total: {{ dailyTotalHHMM }}</span>
+                        <span><i class="fas fa-chart-pie text-emerald-600 mr-1.5"></i>本日のプロジェクト別集計 (HH:MM)</span>
+                        <span class="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold select-all">合計: {{ dailyTotalHHMM }}</span>
                     </h2>
                     <div v-if="dailyProjectSummary.length === 0" class="text-[11px] text-slate-400 py-1">
-                        No actuals for today
+                        本日の実績データがまだありません
                     </div>
                     <div v-else class="space-y-1">
                         <div v-for="proj in dailyProjectSummary" :key="proj.name" class="flex justify-between items-center text-xs bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
                             <span class="font-medium text-slate-700 truncate max-w-[180px]" :title="proj.name">{{ proj.name }}</span>
-                            <span class="font-mono font-bold text-emerald-700 select-all cursor-text" title="Select and copy">{{ proj.hhmm }}</span>
+                            <span class="font-mono font-bold text-emerald-700 select-all cursor-text" title="マウスで選択してコピーできます">{{ proj.hhmm }}</span>
                         </div>
                     </div>
                 </div>
@@ -336,25 +336,25 @@
                 <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-1 mb-1.5">
                         <h2 class="text-xs font-bold text-slate-700 flex items-center">
-                            <i class="fas fa-history text-indigo-600 mr-1.5"></i>Task Totals
+                            <i class="fas fa-history text-indigo-600 mr-1.5"></i>タスク別累計工数
                         </h2>
-                        <span class="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold select-all">Total: {{ filteredSummaryTotalHHMM }}</span>
+                        <span class="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold select-all">合計: {{ filteredSummaryTotalHHMM }}</span>
                     </div>
                     
                     <div class="flex flex-col gap-1.5 mb-2">
                         <div class="flex items-center justify-between gap-1">
-                            <input type="date" v-model="summaryStartDate" class="w-full px-1 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 cursor-pointer" title="Start date">
+                            <input type="date" v-model="summaryStartDate" class="w-full px-1 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 cursor-pointer" title="開始日">
                             <span class="text-[10px] text-slate-400">〜</span>
-                            <input type="date" v-model="summaryEndDate" class="w-full px-1 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 cursor-pointer" title="End date">
+                            <input type="date" v-model="summaryEndDate" class="w-full px-1 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 cursor-pointer" title="終了日">
                         </div>
                         <div class="relative w-full">
                             <i class="fas fa-search absolute left-2 top-1.5 text-[10px] text-slate-400"></i>
-                            <input type="text" v-model="taskFilterKeyword" placeholder="Filter tasks..." class="w-full pl-6 pr-2 py-0.5 text-[11px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400">
+                            <input type="text" v-model="taskFilterKeyword" placeholder="キーワードで絞り込む..." class="w-full pl-6 pr-2 py-0.5 text-[11px] bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400">
                         </div>
                     </div>
                     
                     <div v-if="filteredAllTimeTaskSummary.length === 0" class="text-[11px] text-slate-400 py-1 text-center">
-                        No matching tasks
+                        該当するタスクがありません
                     </div>
                     <div v-else class="h-32 min-h-[60px] resize-y overflow-y-auto space-y-1 pr-1 pb-1">
                         <div v-for="taskSummary in filteredAllTimeTaskSummary" :key="taskSummary.name" class="flex justify-between items-center text-xs bg-indigo-50/50 px-2.5 py-1 rounded border border-indigo-100/60">
@@ -366,16 +366,16 @@
 
                 <div class="grid grid-cols-1 gap-2.5">
                     <div>
-                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-exclamation-circle text-red-500 mr-1.5"></i>Issues & blockers</h2>
-                        <textarea v-model="currentReflection.issue" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="Issues or blockers from today..."></textarea>
+                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-exclamation-circle text-red-500 mr-1.5"></i>気になること・問題・課題</h2>
+                        <textarea v-model="currentReflection.issue" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="本日の業務で気になった課題や問題点..."></textarea>
                     </div>
                     <div>
-                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1.5"></i>Wins & learnings (W)</h2>
-                        <textarea v-model="currentReflection.w" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="What you learned from plan vs. actual..."></textarea>
+                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1.5"></i>今日の気づき (W)</h2>
+                        <textarea v-model="currentReflection.w" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="計画と実績のズレから気づいたこと..."></textarea>
                     </div>
                     <div>
-                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-arrow-right text-blue-500 mr-1.5"></i>Tomorrow's action (T)</h2>
-                        <textarea v-model="currentReflection.t" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="How to apply it tomorrow..."></textarea>
+                        <h2 class="text-xs font-bold text-slate-700 mb-1"><i class="fas fa-arrow-right text-blue-500 mr-1.5"></i>明日のアクション (T)</h2>
+                        <textarea v-model="currentReflection.t" class="w-full h-16 min-h-[40px] p-2 text-xs bg-white border border-slate-200 rounded-lg shadow-inner outline-none focus:border-indigo-400 resize-y placeholder-slate-300" placeholder="明日どう活かすか..."></textarea>
                     </div>
                 </div>
             </div>
@@ -384,17 +384,17 @@
         <div v-if="copyDateModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
                 <h3 class="font-bold text-base mb-3 text-slate-800 flex items-center justify-between">
-                    <span><i class="fas fa-calendar-alt text-indigo-600 mr-2"></i>Copy {{ copyDateModal.type === 'plan' ? 'plans' : 'actuals' }}</span>
+                    <span><i class="fas fa-calendar-alt text-indigo-600 mr-2"></i>{{ copyDateModal.type === 'plan' ? '計画' : '実績' }}を別日からコピー</span>
                     <button @click="copyDateModal.show = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
                 </h3>
-                <p class="text-xs text-slate-500 mb-3">Select a source date. Data will be copied to {{ currentDate }}.</p>
+                <p class="text-xs text-slate-500 mb-3">コピー元となる日付を選択してください。選択した日のデータを当日（{{ currentDate }}）に複製します。</p>
                 <div class="mb-4">
-                    <label class="block text-xs font-bold text-slate-600 mb-1">Source date</label>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">コピー元の日付</label>
                     <input type="date" v-model="copyDateModal.sourceDate" class="w-full border border-slate-300 p-2 text-sm rounded-lg outline-none focus:border-indigo-500">
                 </div>
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button @click="copyDateModal.show = false" class="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Cancel</button>
-                    <button @click="executeDateCopy" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-sm">Copy</button>
+                    <button @click="copyDateModal.show = false" class="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">キャンセル</button>
+                    <button @click="executeDateCopy" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-sm">コピーを実行</button>
                 </div>
             </div>
         </div>
@@ -402,16 +402,16 @@
         <div v-if="reportModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 flex flex-col max-h-[90vh]">
                 <h3 class="font-bold text-base mb-3 text-slate-800 flex items-center justify-between">
-                    <span><i class="fas fa-file-alt text-indigo-600 mr-2"></i>Report preview (Markdown) ({{ currentDate }})</span>
+                    <span><i class="fas fa-file-alt text-indigo-600 mr-2"></i>日報自動プレビュー (Markdown) ({{ currentDate }})</span>
                     <button @click="reportModal.show = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
                 </h3>
                 <div class="flex-1 overflow-y-auto bg-slate-50 p-3.5 rounded-lg border border-slate-200 font-mono text-xs whitespace-pre-wrap text-slate-700 leading-relaxed select-text" id="report-text-area">{{ generatedReportText }}</div>
                 <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-100">
-                    <span class="text-[11px] text-slate-400"><i class="fas fa-info-circle mr-1"></i>Copy as Markdown</span>
+                    <span class="text-[11px] text-slate-400"><i class="fas fa-info-circle mr-1"></i>ワンクリックでMarkdown形式でコピーできます</span>
                     <div class="flex gap-2">
-                        <button @click="reportModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Close</button>
+                        <button @click="reportModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">閉じる</button>
                         <button @click="copyReportToClipboard" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-sm flex items-center gap-1.5">
-                            <i class="fas fa-copy"></i> Copy
+                            <i class="fas fa-copy"></i> コピーする
                         </button>
                     </div>
                 </div>
@@ -421,36 +421,36 @@
         <div v-if="planModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
                 <h3 class="font-bold text-lg mb-4 text-slate-800">
-                    <i class="fas fa-calendar-plus text-blue-600 mr-2"></i>{{ planModal.isEdit ? 'Edit plan' : 'Add plan' }}
+                    <i class="fas fa-calendar-plus text-blue-600 mr-2"></i>{{ planModal.isEdit ? '計画を編集' : '計画を追加' }}
                 </h3>
                 <div class="space-y-4 text-sm">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1">Date</label>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">日付</label>
                         <input type="date" v-model="planModal.form.date" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1">Task</label>
-                        <input type="text" v-model="planModal.form.title" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500" placeholder="e.g. [Project A] Draft proposal">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">タスク名</label>
+                        <input type="text" v-model="planModal.form.title" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500" placeholder="例: [Aプロジェクト] 企画書作成">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1">Start</label>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">開始時間</label>
                             <input type="time" v-model="planModal.form.startTime" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1">End</label>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">終了時間</label>
                             <input type="time" v-model="planModal.form.endTime" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500">
                         </div>
                     </div>
                 </div>
                 <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-100">
                     <button v-if="planModal.isEdit" @click="deletePlanModal" class="text-red-500 hover:text-red-700 text-xs font-bold px-3 py-2">
-                        <i class="fas fa-trash mr-1"></i> Delete
+                        <i class="fas fa-trash mr-1"></i> 削除
                     </button>
                     <div v-else></div>
                     <div class="flex gap-2">
-                        <button @click="planModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Cancel</button>
-                        <button @click="savePlan" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-bold shadow-sm">Save</button>
+                        <button @click="planModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">キャンセル</button>
+                        <button @click="savePlan" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-bold shadow-sm">保存する</button>
                     </div>
                 </div>
             </div>
@@ -459,36 +459,36 @@
         <div v-if="actualModal.show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
                 <h3 class="font-bold text-lg mb-4 text-slate-800">
-                    <i class="fas fa-edit text-emerald-600 mr-2"></i>{{ actualModal.isEdit ? 'Edit actual' : 'Add actual' }}
+                    <i class="fas fa-edit text-emerald-600 mr-2"></i>{{ actualModal.isEdit ? '実績を編集' : '実績を直接追加' }}
                 </h3>
                 <div class="space-y-4 text-sm">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1">Date</label>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">日付</label>
                         <input type="date" v-model="actualModal.form.date" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1">Task</label>
-                        <input type="text" v-model="actualModal.form.title" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500" placeholder="e.g. [Project A] Draft proposal">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">タスク名</label>
+                        <input type="text" v-model="actualModal.form.title" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500" placeholder="例: [Aプロジェクト] 企画書作成">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1">Start</label>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">開始時間</label>
                             <input type="time" v-model="actualModal.form.startTime" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1">End <span v-if="actualModal.isEdit && actualModal.target && actualModal.target.isRunning" class="text-xs text-emerald-600 font-normal">(Running)</span></label>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">終了時間 <span v-if="actualModal.isEdit && actualModal.target && actualModal.target.isRunning" class="text-xs text-emerald-600 font-normal">(進行中)</span></label>
                             <input type="time" v-model="actualModal.form.endTime" :disabled="actualModal.isEdit && actualModal.target && actualModal.target.isRunning" class="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400">
                         </div>
                     </div>
                 </div>
                 <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-100">
                     <button v-if="actualModal.isEdit" @click="deleteActualModal" class="text-red-500 hover:text-red-700 text-xs font-bold px-3 py-2">
-                        <i class="fas fa-trash mr-1"></i> Delete
+                        <i class="fas fa-trash mr-1"></i> 削除
                     </button>
                     <div v-else></div>
                     <div class="flex gap-2">
-                        <button @click="actualModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">Cancel</button>
-                        <button @click="saveActual" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-xs font-bold shadow-sm">Save</button>
+                        <button @click="actualModal.show = false" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-bold">キャンセル</button>
+                        <button @click="saveActual" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-xs font-bold shadow-sm">保存する</button>
                     </div>
                 </div>
             </div>
@@ -566,7 +566,7 @@
                     }
                     const colorIndex = Math.abs(hash) % 16;
                     
-                    // 16色のパレット
+                    // 8色のパレット (Blue, Emerald, Amber, Rose, Purple, Cyan, Orange, Indigo)
                     // plan(計画)は薄め、actual(実績)は少し濃いめに設定
                     const palettes = [
                         { plan:{bg:'#eff6ff',border:'#bfdbfe',text:'#1e3a8a'}, actual:{bg:'#bfdbfe',border:'#3b82f6',text:'#1e3a8a'} },
